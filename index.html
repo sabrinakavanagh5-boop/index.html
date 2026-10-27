@@ -2,237 +2,108 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>Gorilla Arena Escape: True Layout Build</title>
+    <title>Gorilla Arena Escape: Pure HTML Build</title>
     
     <!-- Stable production loading for the A-Frame core framework -->
     <script src="https://aframe.io"></script>
+</head>
+<body>
 
-    <!-- Custom Gorilla Tag framework scripts running natively in engine -->
-    <script>
-        window.isGameOver = false;
+    <!-- 1. THE MAIN 3D VR SCENE -->
+    <a-scene>
+        
+        <!-- 2. GAME ASSETS PRELOADER -->
+        <a-assets>
+            <!-- Preloading your custom Githack Gorilla Tag playermodel -->
+            <a-asset-item id="monke-avatar" src="https://githack.com"></a-asset-item>
+        </a-assets>
 
-        // --- DAY/NIGHT TOGGLE SYSTEM ---
-        AFRAME.registerComponent('day-night-toggle', {
-            init: function () {
-                this.isDay = true;
-                this.ambientLight = document.querySelector('#ambientLight');
-                this.sunLight = document.querySelector('#sunLight');
-                this.sky = document.querySelector('#skyBox');
-                
-                window.toggleDayNight = () => {
-                    if (window.isGameOver) return;
-                    this.isDay = !this.isDay;
-                    if (this.isDay) {
-                        this.ambientLight.setAttribute('color', '#bbbbbb');
-                        this.sunLight.setAttribute('intensity', '0.8');
-                        this.sunLight.setAttribute('color', '#ffffff');
-                        this.sky.setAttribute('color', '#1a1a24');
-                    } else {
-                        this.ambientLight.setAttribute('color', '#05050f');
-                        this.sunLight.setAttribute('intensity', '0.1');
-                        this.sunLight.setAttribute('color', '#ff0055');
-                        this.sky.setAttribute('color', '#020205');
-                    }
-                };
-            }
-        });
+        <!-- 3. ENVIRONMENT LIGHTING & SKY -->
+        
+        
+        <a-sky id="skyBox" color="#1a1a24"></a-sky>
+        
+        <!-- The Main Floor Surface -->
+        <a-plane position="0 0 0" rotation="-90 0 0" width="200" height="200" color="#222" metalness="0.4"></a-plane>
 
-        // --- VR CONTROLLER TRIGGER WATCHER ---
-        AFRAME.registerComponent('vr-trigger-watch', {
-            init: function () {
-                this.el.addEventListener('triggerdown', function (evt) {
-                    if (window.toggleDayNight) window.toggleDayNight();
-                });
-            }
-        });
 
-        // --- FLASHLIGHT ORIENTATION TRACKING ---
-        AFRAME.registerComponent('flashlight-track', {
-            init: function () {
-                this.camera = document.querySelector('#camera');
-            },
-            tick: function () {
-                if (window.isGameOver) return;
-                if (this.camera) {
-                    this.el.object3D.rotation.copy(this.camera.object3D.rotation);
-                }
-            }
-        });
+        <!-- 4. AREA 1: THE EXTENDED SPAWN LOBBY -->
+        <!-- Lobby Walls -->
+        <a-box position="-6 4 30" width="0.5" height="8" depth="36" color="#333" metalness="0.7"></a-box>
+        <a-box position="6 4 30" width="0.5" height="8" depth="36" color="#333" metalness="0.7"></a-box>
+        <a-box position="0 4 48" width="12" height="8" depth="0.5" color="#222" metalness="0.8"></a-box>
 
-        // --- GORILLA TAG STYLE PHYSICS LOCOMOTION ---
-        AFRAME.registerComponent('gtag-locomotion', {
-            init: function () {
-                this.velocity = new THREE.Vector3(0, 0, 0);
-                this.isGrounded = false;
-                this.gravity = -9.8;
-                this.friction = 0.96;
-                this.camera = document.querySelector('#camera');
+        <!-- Interactive Gate Unlock Button Terminal -->
+        <a-box id="unlockButton" position="2 1.2 12.5" width="0.4" height="0.4" depth="0.2" color="#ff0000">
+            <a-text value="SLAP TO ESCAPE" position="-0.7 0.4 0.1" scale="0.5 0.5 0.5" color="#fff"></a-text>
+        </a-box>
 
-                window.addEventListener('mousedown', () => {
-                    if (!this.el.sceneEl.is('vr-mode')) {
-                        this.pushPlayer(new THREE.Vector3(0, 4.5, -5.5));
-                    }
-                });
-            },
-            tick: function (time, timeDelta) {
-                if (window.isGameOver) return;
-                if (!timeDelta) return;
-                let dt = timeDelta / 1000;
-                let pos = this.el.object3D.position;
+        <!-- THE SECURE SLIDING GATE DOOR -->
+        <!-- Listens natively for a click on the #unlockButton asset and animates upward into the ceiling ceiling structure -->
+        <a-box id="hallwayDoor" position="0 4 12" width="12" height="8" depth="0.5" color="#444" metalness="0.9"
+               animation__open="property: position; to: 0 11 12; dur: 1800; easing: easeOutQuad; startEvents: click; eventTarget: #unlockButton">
+        </a-box>
 
-                if (!this.isGrounded) {
-                    this.velocity.y += this.gravity * dt;
-                }
 
-                this.velocity.x *= this.friction;
-                this.velocity.z *= this.friction;
+        <!-- 5. AREA 2: THE MONSTER OBSERVATION WINGS (CROSS INTERSECTIONS) -->
+        <!-- Left Wing Chamber -->
+        <a-box position="-20 4 -6" width="16" height="8" depth="0.5" color="#2b2b2b"></a-box>
+        <a-box position="-20 4 6" width="16" height="8" depth="0.5" color="#2b2b2b"></a-box>
+        <a-box position="-28 4 0" width="0.5" height="8" depth="12" color="#111"></a-box>
 
-                pos.addScaledVector(this.velocity, dt);
+        <!-- Right Wing Chamber -->
+        <a-box position="20 4 -6" width="16" height="8" depth="0.5" color="#2b2b2b"></a-box>
+        <a-box position="20 4 6" width="16" height="8" depth="0.5" color="#2b2b2b"></a-box>
+        <a-box position="28 4 0" width="0.5" height="8" depth="12" color="#111"></a-box>
 
-                if (pos.y <= 0) {
-                    pos.y = 0;
-                    this.velocity.y = 0;
-                    this.isGrounded = true;
-                }
-            },
-            pushPlayer: function(forceVector) {
-                if (window.isGameOver || !this.camera) return;
-                var direction = new THREE.Vector3();
-                this.camera.object3D.getWorldDirection(direction);
-                
-                this.velocity.x = -direction.x * forceVector.z;
-                this.velocity.y = forceVector.y;
-                this.velocity.z = -direction.z * forceVector.z;
-                this.isGrounded = false;
-            }
-        });
 
-        // --- VR HAND PUSH MECHANIC ---
-        AFRAME.registerComponent('vr-gtag-hand-push', {
-            init: function () {
-                this.playerRig = document.querySelector('#player');
-                this.lastPosition = new THREE.Vector3();
-                this.currentVelocity = new THREE.Vector3();
-                this.el.object3D.getWorldPosition(this.lastPosition);
-            },
-            tick: function (time, timeDelta) {
-                if (window.isGameOver || !timeDelta) return;
-                let dt = timeDelta / 1000;
+        <!-- 6. AREA 3: THE SPIKE TRAP RUNWAY RUNWAY (TRUE RUNWAY COORDINATES) -->
+        <!-- Long Runway Wall Geometry Layout -->
+        <a-box position="-6 4 -21" width="0.5" height="8" depth="30" color="#2b2b2b"></a-box>
+        <a-box position="6 4 -21" width="0.5" height="8" depth="30" color="#2b2b2b"></a-box>
+        <a-box position="0 4 -36" width="12" height="8" depth="0.5" color="#222"></a-box> 
 
-                let currentPosition = new THREE.Vector3();
-                this.el.object3D.getWorldPosition(currentPosition);
+        <!-- Looping Hazard Spotlight -->
+        
 
-                this.currentVelocity.subVectors(currentPosition, this.lastPosition).divideScalar(dt);
-                this.lastPosition.copy(currentPosition);
+        <!-- THE AUTOMATED LOOPING SPIKED CEILING MECHANISM -->
+        <!-- Automatically shifts from Y: 9 down to Y: 1.2 and alternates back up smoothly on an endless loop -->
+        <a-box id="spikedCeiling" position="0 9.0 -21" width="11.5" height="1" depth="30" color="#555" metalness="0.8"
+               animation__drop="property: position; from: 0 9.0 -21; to: 0 1.2 -21; dur: 2500; dir: alternate; loop: true; easing: easeInQuad">
+            <!-- Array of Low-Poly Spikes attached directly to the base of the ceiling array -->
+            <a-cone position="-3 -1 -10" radius-bottom="0.4" height="1.5" rotation="180 0 0" color="#aaa"></a-cone>
+            <a-cone position="3 -1 -10" radius-bottom="0.4" height="1.5" rotation="180 0 0" color="#aaa"></a-cone>
+            <a-cone position="-3 -1 0" radius-bottom="0.4" height="1.5" rotation="180 0 0" color="#aaa"></a-cone>
+            <a-cone position="0 -1 0" radius-bottom="0.4" height="1.5" rotation="180 0 0" color="#ff0022"></a-cone>
+            <a-cone position="3 -1 0" radius-bottom="0.4" height="1.5" rotation="180 0 0" color="#aaa"></a-cone>
+            <a-cone position="-3 -1 10" radius-bottom="0.4" height="1.5" rotation="180 0 0" color="#aaa"></a-cone>
+            <a-cone position="3 -1 10" radius-bottom="0.4" height="1.5" rotation="180 0 0" color="#aaa"></a-cone>
+        </a-box>
 
-                let handWorldY = currentPosition.y;
 
-                if (handWorldY <= 0.4 && this.currentVelocity.y < -1.5) {
-                    let locomotion = this.playerRig.components['gtag-locomotion'];
-                    if (locomotion) {
-                        let pushForce = new THREE.Vector3(
-                            -this.currentVelocity.x * 0.4,
-                            Math.abs(this.currentVelocity.y) * 0.8, 
-                            -this.currentVelocity.z * 0.4
-                        );
-                        
-                        pushForce.x = Math.max(-8, Math.min(8, pushForce.x));
-                        pushForce.y = Math.max(2, Math.min(7, pushForce.y));
-                        pushForce.z = Math.max(-8, Math.min(8, pushForce.z));
-
-                        locomotion.pushPlayer(pushForce);
-                    }
-                }
-            }
-        });
-
-        // --- DOOR OPENER SYSTEM ---
-        AFRAME.registerComponent('door-opener', {
-            init: function () {
-                this.door = document.querySelector('#hallwayDoor');
-                this.isOpened = false;
-                this.el.addEventListener('click', () => {
-                    if (this.isOpened) return;
-                    this.isOpened = true;
-                    // Animates the security door upward out of the way
-                    this.door.setAttribute('animation', 'property: position; to: 0 6.5 -20; dur: 1500; easing: easeOutQuad');
-                    this.el.setAttribute('color', '#00ff00'); 
-                });
-            }
-        });
-
-        // --- METHOD TO TRIGGER DEATH OVERLAYS ---
-        window.triggerPlayerDeath = function(message) {
-            window.isGameOver = true;
-            document.querySelector('#death-message').innerText = message;
-            document.querySelector('#jumpscare-screen').style.display = 'flex';
+        <!-- 7. THE VR TRACKED PLAYER CONTROLLER RIG -->
+         
             
-            let sceneEl = document.querySelector('a-scene');
-            let flash = document.createElement('a-sky');
-            flash.setAttribute('color', '#ff0000');
-            sceneEl.appendChild(flash);
-        };
-
-        // --- FALLING SPIKE ROOF SYSTEM (UPDATED ACCORDING TO YOUR ORIGINAL CODE) ---
-        AFRAME.registerComponent('spiked-roof-trap', {
-            init: function () {
-                this.player = document.querySelector('#player');
-                this.trapState = 'IDLE'; 
-                this.timer = 0;
-                this.trapInterval = 30; // Triggers every 30 seconds straight out of your original code
-                this.warningDuration = 3.0; 
-                this.dropSpeed = 15.0; 
-                this.retractSpeed = 1.5; 
-                this.initialY = 9.0;
-                this.lowestY = 1.5; 
-                this.trapLight = document.querySelector('#trapLight');
-            },
-            tick: function (time, timeDelta) {
-                if (window.isGameOver) return;
-                if (!timeDelta) return;
-                let dt = timeDelta / 1000;
-                let pos = this.el.object3D.position;
-
-                this.timer += dt;
-
-                if (this.trapState === 'IDLE' && this.timer >= this.trapInterval) {
-                    this.trapState = 'WARNING';
-                    this.timer = 0;
-                    this.trapLight.setAttribute('light', 'color: #ff0000; intensity: 2');
-                }
+            <!-- Head Track View Setup with Reticle Cursor Link -->
+            <a-camera id="camera" look-controls>
+                <a-cursor raycaster="objects: #unlockButton" color="yellow" scale="0.5 0.5 0.5"></a-cursor>
                 
-                else if (this.trapState === 'WARNING' && this.timer >= this.warningDuration) {
-                    this.trapState = 'DROPPING';
-                    this.timer = 0;
-                }
+                <!-- Head Flashlight item tracking look direction -->
                 
-                else if (this.trapState === 'DROPPING') {
-                    pos.y -= this.dropSpeed * dt;
-                    if (pos.y <= this.lowestY) {
-                        pos.y = this.lowestY;
-                        this.trapState = 'CRUSHED';
-                        this.timer = 0;
-                    }
-                    this.checkCrushCollision();
-                }
-                
-                else if (this.trapState === 'CRUSHED' && this.timer >= 2.0) {
-                    this.trapState = 'RETRACTING';
-                    this.timer = 0;
-                    this.trapLight.setAttribute('light', 'color: #333; intensity: 0.5');
-                }
-                
-                else if (this.trapState === 'RETRACTING') {
-                    pos.y += this.retractSpeed * dt;
-                    if (pos.y >= this.initialY) {
-                        pos.y = this.initialY;
-                        this.trapState = 'IDLE';
-                        this.timer = 0;
-                    }
-                }
+            </a-camera>
 
-                if (this.trapState === 'WARNING') {
-                    let flash = Math.sin(time / 100) > 0;
-                    this.trapLight.setAttribute('light', 'intensity', flash ? 2 : 0);
-                }
-            },
+            <!-- Left Controller Hand Mesh Binding -->
+            
+                <a-gltf-model src="#monke-avatar" rotation="0 180 0" scale="0.4 0.4 0.5"></a-gltf-model>
+            
+            
+            <!-- Right Controller Hand Mesh Binding -->
+            
+                <a-gltf-model src="#monke-avatar" rotation="0 180 0" scale="0.4 0.4 0.5"></a-gltf-model>
+            
+
+        
+
+    </a-scene>
+</body>
+</html>

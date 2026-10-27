@@ -63,7 +63,11 @@
                 this.playerRig = document.querySelector('#player');
                 this.lastPosition = new THREE.Vector3();
                 this.currentVelocity = new THREE.Vector3();
-                this.el.object3D.getWorldPosition(this.lastPosition);
+                
+                // Wait for object3D to sit tightly in world space
+                if (this.el.object3D) {
+                    this.el.object3D.getWorldPosition(this.lastPosition);
+                }
             },
             tick: function (time, timeDelta) {
                 if (window.isGameOver || !timeDelta) return;
@@ -105,7 +109,7 @@
                 this.door = document.querySelector('#hallwayDoor');
                 this.isOpened = false;
                 this.el.addEventListener('click', () => {
-                    if (this.isOpened) return;
+                    if (this.isOpened || !this.door) return;
                     this.isOpened = true;
                     // Slide the massive security wall straight into the roof
                     this.door.setAttribute('animation', 'property: position; to: 0 11 12; dur: 1500; easing: easeOutQuad');
@@ -118,7 +122,6 @@
         AFRAME.registerComponent('spiked-roof-trap', {
             init: function () {
                 this.player = document.querySelector('#player');
-                this.trapLight = document.querySelector('#trapLight');
             },
             tick: function () {
                 if (window.isGameOver || !this.player) return;
@@ -126,7 +129,7 @@
                 let trapPos = this.el.object3D.position;
                 let playerPos = this.player.object3D.position;
 
-                // Math: Calculate if player is under the 30-meter long hazard room shadow
+                // Math: Calculate if player is under the hazard footprint
                 let distanceX = Math.abs(trapPos.x - playerPos.x);
                 let distanceZ = Math.abs(trapPos.z - playerPos.z);
                 
@@ -139,6 +142,7 @@
 
         // --- SYSTEM GAME OVER METHOD ---
         window.triggerPlayerDeath = function(message) {
+            if (window.isGameOver) return;
             window.isGameOver = true;
             document.querySelector('#death-message').innerText = message;
             document.querySelector('#jumpscare-screen').style.display = 'flex';
@@ -168,41 +172,36 @@
         </a-assets>
 
         <!-- ENVIRONMENT SETUP -->
-        
-        
         <a-sky id="skyBox" color="#1a1a24"></a-sky>
         <a-plane position="0 0 0" rotation="-90 0 0" width="200" height="200" color="#222" metalness="0.4"></a-plane>
-
 
         <!-- MAP LAYOUT AREA 1: THE EXTENDED SPAWN LOBBY -->
         <a-box position="-6 4 30" width="0.5" height="8" depth="36" color="#333" metalness="0.7"></a-box>
         <a-box position="6 4 30" width="0.5" height="8" depth="36" color="#333" metalness="0.7"></a-box>
         <a-box position="0 4 48" width="12" height="8" depth="0.5" color="#222" metalness="0.8"></a-box>
 
-        <!-- Access Button Switch Terminal -->
-        <a-box id="unlockButton" door-opener position="2 1.2 12.5" width="0.4" height="0.4" depth="0.2" color="#ff0000">
-            <a-text value="SLAP TO ESCAPE" position="-0.7 0.4 0.1" scale="0.5 0.5 0.5" color="#fff"></a-text>
-        </a-box>
+        <!-- Access Button Switch Terminal (Repaired and Closed) -->
+        <a-box id="unlockButton" door-opener position="2 1.2 12.5" width="0.4" height="0.4" depth="0.4" color="#ff0000"></a-box>
 
-        <!-- The Security Sliding Door Wall -->
-        <a-box id="hallwayDoor" position="0 4 12" width="12" height="8" depth="0.5" color="#444" metalness="0.9"></a-box>
+        <!-- The Target Security Door -->
+        <a-box id="hallwayDoor" position="0 4 12" width="12" height="8" depth="1" color="#444" metalness="0.9"></a-box>
 
+        <!-- Moving Hazard: Spiked Roof Trap -->
+        <a-box id="spikeTrap" spiked-roof-trap position="0 7 25" width="11.5" height="1" depth="20" color="#553333"
+               animation="property: position; from: 0 7 25; to: 0 1 25; dur: 5000; dir: alternate; loop: true; easing: linear"></a-box>
 
-        <!-- MAP LAYOUT AREA 2: THE MONSTER OBSERVATION CROSS-WINGS -->
-        <!-- Left Wing -->
-        <a-box position="-20 4 -6" width="16" height="8" depth="0.5" color="#2b2b2b"></a-box>
-        <a-box position="-20 4 6" width="16" height="8" depth="0.5" color="#2b2b2b"></a-box>
-        <a-box position="-28 4 0" width="0.5" height="8" depth="12" color="#111"></a-box>
-
-        <!-- Right Wing -->
-        <a-box position="20 4 -6" width="16" height="8" depth="0.5" color="#2b2b2b"></a-box>
-        <a-box position="20 4 6" width="16" height="8" depth="0.5" color="#2b2b2b"></a-box>
-        <a-box position="28 4 0" width="0.5" height="8" depth="12" color="#111"></a-box>
-
-
-        <!-- MAP LAYOUT AREA 3: THE SPIKE TRAP RUNWAY -->
-        <a-box position="-6 4 -21" width="0.5" height="8" depth="30" color="#2b2b2b"></a-box>
-        <a-box position="6 4 -21" width="0.5" height="8" depth="30" color="#2b2b2b"></a-box>
-        <a-box position="0 4 -36" width="12" height="8" depth="0.5" color="#222"></a-box> 
-
-        <!-- Hazard Alert Light -->
+        <!-- --- RECONSTRUCTED PLAYER RIG WITH LOCOMOTION COMPONENTS --- -->
+        
+            <!-- Head Camera -->
+            
+                <!-- Raycaster cursor so desktop players can click the terminal button -->
+                <a-cursor id="mouseCursor" raycaster="objects: [door-opener]" material="color: white; shader: flat" position="0 0 -1"></a-cursor>
+            
+            
+            <!-- Left Hand Tracked Controller -->
+            
+                <a-sphere radius="0.1" color="#ff0000"></a-sphere>
+            
+            
+            <!-- Right Hand Tracked Controller -->
+            

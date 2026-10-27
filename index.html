@@ -93,9 +93,90 @@ AFRAME.registerComponent('gtag-locomotion', {
   }
 });
 
+/* ---------- Procedural brick / concrete textures (with bump maps for depth) ---------- */
+const TEX_CACHE = {};
+function makeTexture(kind) {
+  if (TEX_CACHE[kind]) return TEX_CACHE[kind];
+  const mk = () => { const c = document.createElement('canvas'); c.width = c.height = 256; return c; };
+  const col = mk(), hgt = mk(), g = col.getContext('2d'), h = hgt.getContext('2d');
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  if (kind === 'brick') {
+    g.fillStyle = '#a49d90'; g.fillRect(0, 0, 256, 256);                 // mortar
+    h.fillStyle = '#101010'; h.fillRect(0, 0, 256, 256);                 // mortar sits deep
+    for (let n = 0; n < 1500; n++) {                                     // mortar grit
+      g.fillStyle = `rgba(${rnd(60,200)|0},${rnd(60,190)|0},${rnd(50,170)|0},0.35)`;
+      g.fillRect(rnd(0, 256), rnd(0, 256), 1, 1);
+    }
+    for (let row = 0; row < 4; row++) {
+      for (let i = -1; i < 3; i++) {
+        const x = i * 128 + (row % 2 ? 64 : 0) + 4, y = row * 64 + 5, w = 120, ht = 54;
+        const r = rnd(120, 180), gr = rnd(45, 85), b = rnd(35, 65);
+        g.fillStyle = `rgb(${r|0},${gr|0},${b|0})`; g.fillRect(x, y, w, ht);
+        h.fillStyle = `rgb(${rnd(170,215)|0},${rnd(170,215)|0},${rnd(170,215)|0})`; h.fillRect(x, y, w, ht);
+        for (let n = 0; n < 500; n++) {                                  // rough grain, light and dark
+          const light = Math.random() < 0.3, a = rnd(0.05, 0.22), sz = rnd(1, 3.5);
+          g.fillStyle = light ? `rgba(255,170,130,${a})` : `rgba(20,5,0,${a})`;
+          g.fillRect(x + rnd(0, w), y + rnd(0, ht), sz, sz);
+          h.fillStyle = light ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.3)';
+          h.fillRect(x + rnd(0, w), y + rnd(0, ht), sz, sz);
+        }
+        for (let n = 0; n < 3; n++) {                                    // chips and pits
+          const cx = x + rnd(2, w - 8), cy = y + rnd(2, ht - 8), cw = rnd(3, 9), ch = rnd(3, 7);
+          g.fillStyle = 'rgba(30,12,5,0.55)'; g.fillRect(cx, cy, cw, ch);
+          h.fillStyle = 'rgba(0,0,0,0.6)'; h.fillRect(cx, cy, cw, ch);
+        }
+        g.fillStyle = 'rgba(255,220,190,0.18)'; g.fillRect(x, y, w, 3); g.fillRect(x, y, 3, ht);   // lit edges
+        g.fillStyle = 'rgba(0,0,0,0.3)'; g.fillRect(x, y + ht - 3, w, 3); g.fillRect(x + w - 3, y, 3, ht); // shaded edges
+      }
+    }
+  } else {                                                               // concrete
+    g.fillStyle = '#8e8e8b'; g.fillRect(0, 0, 256, 256);
+    h.fillStyle = '#808080'; h.fillRect(0, 0, 256, 256);
+    for (let n = 0; n < 5000; n++) {
+      const v = rnd(105, 180) | 0, sz = rnd(1, 4);
+      g.fillStyle = `rgba(${v},${v},${v - 3},${rnd(0.15, 0.45)})`;
+      g.fillRect(rnd(0, 256), rnd(0, 256), sz, sz);
+      const k = rnd(60, 200) | 0;
+      h.fillStyle = `rgba(${k},${k},${k},0.4)`; h.fillRect(rnd(0, 256), rnd(0, 256), sz, sz);
+    }
+    for (let n = 0; n < 6; n++) {                                        // stains
+      const cx = rnd(0, 256), cy = rnd(0, 256), gr = g.createRadialGradient(cx, cy, 2, cx, cy, rnd(20, 50));
+      gr.addColorStop(0, 'rgba(60,60,55,0.14)'); gr.addColorStop(1, 'rgba(60,60,55,0)');
+      g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
+    }
+    g.strokeStyle = 'rgba(40,40,40,0.5)'; g.lineWidth = 2; g.strokeRect(1, 1, 254, 254);   // panel seams
+    h.strokeStyle = '#000'; h.lineWidth = 3; h.strokeRect(1, 1, 254, 254);
+    g.strokeStyle = 'rgba(40,40,40,0.35)'; h.strokeStyle = 'rgba(0,0,0,0.6)'; g.lineWidth = h.lineWidth = 1;
+    g.beginPath(); h.beginPath(); let x = rnd(40, 200), y = 0; g.moveTo(x, y); h.moveTo(x, y);
+    while (y < 256) { x += rnd(-10, 10); y += rnd(10, 25); g.lineTo(x, y); h.lineTo(x, y); }
+    g.stroke(); h.stroke();
+  }
+  const t = new THREE.CanvasTexture(col), bt = new THREE.CanvasTexture(hgt);
+  for (const x of [t, bt]) { x.wrapS = x.wrapT = THREE.RepeatWrapping; x.anisotropy = 4; }
+  t.colorSpace = THREE.SRGBColorSpace;
+  return (TEX_CACHE[kind] = {map: t, bump: bt});
+}
+AFRAME.registerComponent('proc-tex', {
+  // size = metres per tile. repeat = force exact tile counts (use on big flat floors/roofs)
+  schema: {kind: {default: 'brick'}, size: {default: 1.5}, repeat: {type: 'vec2', default: {x: 0, y: 0}}},
+  init: function () {
+    const apply = () => {
+      const mesh = this.el.getObject3D('mesh'), geo = this.el.components.geometry;
+      if (!mesh || !geo) return;
+      const d = geo.data, T = makeTexture(this.data.kind), m = T.map.clone(), bm = T.bump.clone();
+      const rx = this.data.repeat.x || Math.max(1, Math.max(d.width, d.depth || 1) / this.data.size);
+      const ry = this.data.repeat.y || Math.max(1, (d.height || 1) / this.data.size);
+      for (const t of [m, bm]) { t.repeat.set(rx, ry); t.needsUpdate = true; }
+      mesh.material.map = m; mesh.material.bumpMap = bm; mesh.material.bumpScale = 2;
+      mesh.material.color.set('#ffffff'); mesh.material.needsUpdate = true;
+    };
+    if (this.el.hasLoaded) apply(); else this.el.addEventListener('loaded', apply);
+  }
+});
+
 /* ---------- Player model that follows your head ---------- */
 AFRAME.registerComponent('gtag-avatar', {
-  schema: {height: {default: 0.55}, yawOffset: {default: 0}, drop: {default: 0.4}},
+  schema: {height: {default: 0.7}, yawOffset: {default: 0}, drop: {default: 0.5}},
   init: function () {
     this.cam = document.querySelector('#camera');
     this.el.addEventListener('model-loaded', () => {
@@ -134,14 +215,20 @@ window.triggerPlayerDeath = function (message) {
     <a-asset-item id="monke" src="gtag_fangame_starter_playermodel.glb"></a-asset-item>
   </a-assets>
 
-  <a-sky color="#87CEEB"></a-sky>
-  <a-plane position="0 0 0" rotation="-90 0 0" width="100" height="100" color="#4a6b3a" roughness="1"></a-plane>
+  <!-- Room: 30 m long (x) by 14 m wide (z), 6 m tall. Spawn is in the middle of the concrete floor. -->
+  <a-light type="ambient" intensity="0.7" color="#ffffff"></a-light>
+  <a-light type="point" position="-9 5.5 0" intensity="0.8" distance="30" decay="1"></a-light>
+  <a-light type="point" position="9 5.5 0" intensity="0.8" distance="30" decay="1"></a-light>
 
-  <!-- Anything with class="solid" can be climbed / pushed off -->
-  <a-box class="solid" position="0 1 -5" width="1" height="2" depth="1" color="#ff0000"></a-box>
-  <a-box class="solid" position="4 0.75 -8" width="3" height="1.5" depth="3" color="#8b5a2b"></a-box>
-  <a-box class="solid" position="-5 1.5 -12" width="3" height="3" depth="3" color="#6b6b6b"></a-box>
-  <a-box class="solid" position="0 2.5 -16" width="6" height="0.5" depth="2" color="#c9a227"></a-box>
+  <!-- Concrete floor (top surface at y=0) -->
+  <a-box class="solid" proc-tex="kind: concrete; repeat: 20 10" position="0 -0.25 0" width="31" height="0.5" depth="15" color="#fff"></a-box>
+  <!-- Concrete roof -->
+  <a-box class="solid" proc-tex="kind: concrete; repeat: 20 10" position="0 6.25 0" width="31" height="0.5" depth="15" color="#fff"></a-box>
+  <!-- Brick walls -->
+  <a-box class="solid" proc-tex="kind: brick" position="0 3 -7.25" width="31" height="6" depth="0.5" color="#fff"></a-box>
+  <a-box class="solid" proc-tex="kind: brick" position="0 3 7.25" width="31" height="6" depth="0.5" color="#fff"></a-box>
+  <a-box class="solid" proc-tex="kind: brick" position="-15.25 3 0" width="0.5" height="6" depth="14" color="#fff"></a-box>
+  <a-box class="solid" proc-tex="kind: brick" position="15.25 3 0" width="0.5" height="6" depth="14" color="#fff"></a-box>
 
   <!-- Player rig -->
   <a-entity id="player" gtag-locomotion position="0 0 0">
@@ -149,10 +236,10 @@ window.triggerPlayerDeath = function (message) {
     <a-entity gtag-avatar gltf-model="#monke"></a-entity>
 
     <a-entity id="left-hand" hand-controls="hand: left">
-      <a-sphere radius="0.06" color="#ffb347"></a-sphere>
+      <a-sphere radius="0.02" color="#ffb347"></a-sphere>
     </a-entity>
     <a-entity id="right-hand" hand-controls="hand: right">
-      <a-sphere radius="0.06" color="#ffb347"></a-sphere>
+      <a-sphere radius="0.02" color="#ffb347"></a-sphere>
     </a-entity>
   </a-entity>
 </a-scene>

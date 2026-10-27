@@ -2,75 +2,150 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>Gorilla Arena Escape: Final Fixed Build</title>
+    <title>Gorilla Arena Escape: Full Playable VR Build</title>
     
     <!-- Stable production loading for the A-Frame core framework -->
-    <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+    <script src="https://aframe.io"></script>
+
+    <!-- Native Helper Components for VR Locomotion and Rig Tracking -->
+    <script>
+        // --- GORILLA TAG STYLE HAND-PUSH PHYSICS ---
+        AFRAME.registerComponent('gtag-physics-locomotion', {
+            init: function () {
+                this.velocity = new THREE.Vector3(0, 0, 0);
+                this.isGrounded = false;
+                this.gravity = -9.8;
+                this.friction = 0.96; // Air resistance/damping
+                this.camera = document.querySelector('#camera');
+
+                // Desktop Testing Fallback (Click to jump forward)
+                window.addEventListener('mousedown', () => {
+                    if (!this.el.sceneEl.is('vr-mode')) {
+                        this.pushPlayer(new THREE.Vector3(0, 4.5, -5.5));
+                    }
+                });
+            },
+            tick: function (time, timeDelta) {
+                if (!timeDelta) return;
+                let dt = timeDelta / 1000;
+                let pos = this.el.object3D.position;
+
+                // Apply constant gravity gravity
+                if (!this.isGrounded) {
+                    this.velocity.y += this.gravity * dt;
+                }
+
+                // Smooth out sliding drift friction
+                this.velocity.x *= this.friction;
+                this.velocity.z *= this.friction;
+
+                pos.addScaledVector(this.velocity, dt);
+
+                // Floor boundary collision limit
+                if (pos.y <= 0) {
+                    pos.y = 0;
+                    this.velocity.y = 0;
+                    this.isGrounded = true;
+                }
+            },
+            pushPlayer: function(forceVector) {
+                this.velocity.add(forceVector);
+                this.isGrounded = false;
+            }
+        });
+
+        // --- CONTROLLER VELOCITY TRACKER FOR VR MOVEMENT ---
+        AFRAME.registerComponent('vr-hand-push-trigger', {
+            init: function () {
+                this.playerRig = document.querySelector('#player');
+                this.lastPosition = new THREE.Vector3();
+                this.currentVelocity = new THREE.Vector3();
+                this.el.object3D.getWorldPosition(this.lastPosition);
+            },
+            tick: function (time, timeDelta) {
+                if (!timeDelta) return;
+                let dt = timeDelta / 1000;
+
+                let currentPosition = new THREE.Vector3();
+                this.el.object3D.getWorldPosition(currentPosition);
+
+                // Measure hand speed velocity vector this frame
+                this.currentVelocity.subVectors(currentPosition, this.lastPosition).divideScalar(dt);
+                this.lastPosition.copy(currentPosition);
+
+                let handWorldY = currentPosition.y;
+
+                // If hand slaps downward near the floor bounds plane, launch player
+                if (handWorldY <= 0.4 && this.currentVelocity.y < -1.5) {
+                    let locomotion = this.playerRig.components['gtag-physics-locomotion'];
+                    if (locomotion) {
+                        let pushForce = new THREE.Vector3(
+                            -this.currentVelocity.x * 0.4,
+                            Math.abs(this.currentVelocity.y) * 0.8, 
+                            -this.currentVelocity.z * 0.4
+                        );
+                        
+                        // Prevent flying completely outside the arena layout grid bounds
+                        pushForce.x = Math.max(-8, Math.min(8, pushForce.x));
+                        pushForce.y = Math.max(2, Math.min(7, pushForce.y));
+                        pushForce.z = Math.max(-8, Math.min(8, pushForce.z));
+
+                        locomotion.pushPlayer(pushForce);
+                    }
+                }
+            }
+        });
+    </script>
 </head>
 <body>
 
-    <!-- 1. MAIN 3D SCENE ROOT -->
     <a-scene>
         
-        <!-- 2. GAME ASSETS PRELOADER -->
+        <!-- GAME ASSETS PRELOADER -->
         <a-assets>
-            <!-- Preloading your custom Githack Gorilla Tag playermodel -->
             <a-asset-item id="monke-avatar" src="https://githack.com"></a-asset-item>
         </a-assets>
 
-        <!-- 3. ENVIRONMENT LIGHTING & BACKDROP -->
+        <!-- ENVIRONMENT LIGHTING & SKY -->
         
         
         <a-sky id="skyBox" color="#1a1a24"></a-sky>
-        
-        <!-- Main Arena Floor Ground -->
         <a-plane position="0 0 0" rotation="-90 0 0" width="200" height="200" color="#222" metalness="0.4"></a-plane>
 
-
-        <!-- 4. AREA 1: THE EXTENDED SPAWN LOBBY -->
-        <!-- Corridor Walls -->
+        <!-- AREA 1: THE EXTENDED SPAWN LOBBY -->
         <a-box position="-6 4 30" width="0.5" height="8" depth="36" color="#333" metalness="0.7"></a-box>
         <a-box position="6 4 30" width="0.5" height="8" depth="36" color="#333" metalness="0.7"></a-box>
         <a-box position="0 4 48" width="12" height="8" depth="0.5" color="#222" metalness="0.8"></a-box>
 
-        <!-- Door Switch Terminal -->
+        <!-- Door Open Switch Node -->
         <a-box id="unlockButton" position="2 1.2 12.5" width="0.4" height="0.4" depth="0.2" color="#ff0000">
             <a-text value="SLAP TO ESCAPE" position="-0.7 0.4 0.1" scale="0.5 0.5 0.5" color="#fff"></a-text>
         </a-box>
 
-        <!-- SECURITY SLIDING DOOR -->
-        <!-- Native animation node triggered instantly when a player hovers or clicks #unlockButton -->
+        <!-- Security Sliding Gate -->
         <a-box id="hallwayDoor" position="0 4 12" width="12" height="8" depth="0.5" color="#444" metalness="0.9"
                animation__open="property: position; to: 0 11 12; dur: 1800; easing: easeOutQuad; startEvents: click; eventTarget: #unlockButton">
         </a-box>
 
-
-        <!-- 5. AREA 2: THE MONSTER OBSERVATION WINGS (CROSS SECTIONS) -->
-        <!-- Left Wing Wingwall -->
+        <!-- AREA 2: THE MONSTER OBSERVATION WINGS (CROSS SECTIONS) -->
         <a-box position="-20 4 -6" width="16" height="8" depth="0.5" color="#2b2b2b"></a-box>
         <a-box position="-20 4 6" width="16" height="8" depth="0.5" color="#2b2b2b"></a-box>
         <a-box position="-28 4 0" width="0.5" height="8" depth="12" color="#111"></a-box>
 
-        <!-- Right Wing Wingwall -->
         <a-box position="20 4 -6" width="16" height="8" depth="0.5" color="#2b2b2b"></a-box>
         <a-box position="20 4 6" width="16" height="8" depth="0.5" color="#2b2b2b"></a-box>
         <a-box position="28 4 0" width="0.5" height="8" depth="12" color="#111"></a-box>
 
-
-        <!-- 6. AREA 3: THE SPIKE TRAP CORRIDOR -->
-        <!-- Main Runway Boundaries -->
+        <!-- AREA 3: THE SPIKE TRAP RUNWAY -->
         <a-box position="-6 4 -21" width="0.5" height="8" depth="30" color="#2b2b2b"></a-box>
         <a-box position="6 4 -21" width="0.5" height="8" depth="30" color="#2b2b2b"></a-box>
         <a-box position="0 4 -36" width="12" height="8" depth="0.5" color="#222"></a-box> 
 
-        <!-- Hazard Alert Light -->
         
 
-        <!-- LOOPING SPIKED CEILING ASSEMBLY -->
-        <!-- Pure HTML looping movement node traveling continuously between Y: 9.0 and Y: 1.2 -->
+        <!-- Automated Looping Ceiling Trap -->
         <a-box id="spikedCeiling" position="0 9.0 -21" width="11.5" height="1" depth="30" color="#555" metalness="0.8"
                animation__drop="property: position; from: 0 9.0 -21; to: 0 1.2 -21; dur: 2500; dir: alternate; loop: true; easing: easeInQuad">
-            <!-- Geometric Low-Poly Spikes attached directly to the base frame -->
             <a-cone position="-3 -1 -10" radius-bottom="0.4" height="1.5" rotation="180 0 0" color="#aaa"></a-cone>
             <a-cone position="3 -1 -10" radius-bottom="0.4" height="1.5" rotation="180 0 0" color="#aaa"></a-cone>
             <a-cone position="-3 -1 0" radius-bottom="0.4" height="1.5" rotation="180 0 0" color="#aaa"></a-cone>
@@ -80,29 +155,30 @@
             <a-cone position="3 -1 10" radius-bottom="0.4" height="1.5" rotation="180 0 0" color="#aaa"></a-cone>
         </a-box>
 
-
-        <!-- 7. THE VR PLAYER AVATAR ASSEMBLY -->
+        <!-- 7. PLAYABLE GTAG VR CHARACTER PLAYER RIG -->
          
-            <!-- Central Main Sight Camera View -->
+            
+            <!-- Central Eye Camera Stance -->
             <a-camera id="camera" look-controls>
-                <!-- Central Reticle Cursor for selecting the #unlockButton switch node -->
                 <a-cursor raycaster="objects: #unlockButton" color="yellow" scale="0.5 0.5 0.5"></a-cursor>
                 
-                <!-- Sight Attached Spotlight -->
                 
+                <!-- Attaches your model to your headset camera view so your body mesh spawns with you -->
+                <a-gltf-model src="#monke-avatar" position="0 -1.6 -0.2" rotation="0 180 0" scale="1 1 1"></a-gltf-model>
             </a-camera>
 
-            <!-- Tracked Controller Entities loading your custom .glb playermodel asset -->
+            <!-- Left VR Controller mapping your custom .glb arm mesh bone elements -->
             
-                <a-gltf-model src="#monke-avatar" rotation="0 180 0" scale="0.4 0.4 0.5"></a-gltf-model>
+                <a-gltf-model src="#monke-avatar" position="0 0 0" rotation="0 180 0" scale="0.5 0.5 0.5"></a-gltf-model>
             
             
+            <!-- Right VR Controller mapping your custom .glb arm mesh bone elements -->
             
-                <a-gltf-model src="#monke-avatar" rotation="0 180 0" scale="0.4 0.4 0.5"></a-gltf-model>
+                <a-gltf-model src="#monke-avatar" position="0 0 0" rotation="0 180 0" scale="0.5 0.5 0.5"></a-gltf-model>
             
 
-         <!-- FIXED: Properly terminates the player rig layer -->
+        
 
-    </a-scene> <!-- FIXED: Properly terminates the 3D scene engine layer -->
+    </a-scene>
 </body>
 </html>

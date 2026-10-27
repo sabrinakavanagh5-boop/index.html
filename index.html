@@ -1,116 +1,161 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="utf-8">
-    <title>Terrified Monkes</title>
-    <!-- Core A-Frame Library -->
-    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-    <script>
-        window.isGameOver = false;
+<meta charset="utf-8">
+<title>Terrified Monkes</title>
+<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+<script>
+window.isGameOver = false;
 
-        AFRAME.registerComponent('gtag-physics-locomotion', {
-            init: function () {
-                this.velocity = new THREE.Vector3(0, 0, 0);
-                this.isGrounded = false;
-                this.gravity = -9.8;
-                this.friction = 0.96;
+/* ---------- Gorilla Tag style arm-swing locomotion (lives on the rig) ---------- */
+AFRAME.registerComponent('gtag-locomotion', {
+  schema: {
+    radius:   {default: 0.12},  // hand collision sphere
+    maxSpeed: {default: 7},
+    jump:     {default: 1.15},  // push multiplier when you let go of a surface
+    gravity:  {default: -9.8},
+    drag:     {default: 0.15}
+  },
+  init: function () {
+    this.vel = new THREE.Vector3();
+    this.boxes = [];
+    this.tmp = new THREE.Vector3();
+    this.hands = ['#left-hand', '#right-hand'].map(sel => ({
+      el: document.querySelector(sel), last: new THREE.Vector3(), vel: new THREE.Vector3(), ready: false
+    }));
+    this.el.sceneEl.addEventListener('loaded', () => this.collectSolids());
+    // Desktop test mode: click to launch toward where you look
+    window.addEventListener('mousedown', () => {
+      if (this.el.sceneEl.is('vr-mode') || window.isGameOver) return;
+      const d = new THREE.Vector3();
+      this.el.sceneEl.camera.getWorldDirection(d);
+      d.y = 0; d.normalize().multiplyScalar(4);
+      d.y = 4.5;
+      this.vel.add(d);
+    });
+  },
+  collectSolids: function () {
+    this.boxes = [];
+    document.querySelectorAll('.solid').forEach(el => {
+      el.object3D.updateMatrixWorld(true);
+      this.boxes.push(new THREE.Box3().setFromObject(el.object3D));
+    });
+  },
+  // Returns a push-out vector if sphere at p touches floor/solids, else null
+  collide: function (p) {
+    const r = this.data.radius, out = new THREE.Vector3(); let hit = false;
+    if (p.y - r < 0) { out.y += r - p.y; hit = true; }
+    for (const b of this.boxes) {
+      const c = b.clampPoint(p, new THREE.Vector3());
+      const d = p.clone().sub(c), len = d.length();
+      if (len < r) {
+        hit = true;
+        if (len > 1e-5) out.add(d.multiplyScalar((r - len) / len));
+        else out.y += b.max.y + r - p.y;           // hand is inside the box: push up
+      }
+    }
+    return hit ? out : null;
+  },
+  tick: function (time, delta) {
+    if (window.isGameOver || !delta) return;
+    const dt = Math.min(delta / 1000, 0.05), rig = this.el.object3D.position, vr = this.el.sceneEl.is('vr-mode');
+    let touching = 0; const shift = new THREE.Vector3(), push = new THREE.Vector3();
 
-                window.addEventListener('mousedown', () => {
-                    if (!this.el.sceneEl.is('vr-mode') && !window.isGameOver) {
-                        // Desktop push force
-                        this.pushPlayer(new THREE.Vector3(0, 4.5, -3.5));
-                    }
-                });
-            },
-            tick: function (time, timeDelta) {
-                if (window.isGameOver || !timeDelta) return;
+    if (vr) {
+      for (const h of this.hands) {
+        const local = h.el.object3D.position;
+        if (!h.ready) { h.last.copy(local); h.ready = true; continue; }
+        const delta3 = local.clone().sub(h.last);                    // hand motion relative to body
+        h.vel.lerp(delta3.clone().divideScalar(dt), 0.5);            // smoothed hand velocity
+        h.last.copy(local);
+        // would the hand touch something after the body moves to cancel its motion?
+        const world = rig.clone().sub(delta3).add(local);
+        const corr = this.collide(world);
+        if (corr) {
+          touching++;
+          shift.add(delta3.negate()).add(corr);                      // hand "sticks": body moves opposite
+          push.sub(h.vel);                                           // launch direction = opposite of swing
+        }
+      }
+    }
 
-                let dt = timeDelta / 1000;
-                let pos = this.el.object3D.position;
+    if (touching) {
+      rig.add(shift.divideScalar(touching));
+      this.vel.copy(push.divideScalar(touching).multiplyScalar(this.data.jump));
+    } else {
+      this.vel.y += this.data.gravity * dt;
+      this.vel.multiplyScalar(1 - this.data.drag * dt);
+      rig.addScaledVector(this.vel, dt);
+      if (!vr && rig.y < 0) { rig.y = 0; this.vel.set(this.vel.x * 0.9, 0, this.vel.z * 0.9); }
+    }
+    if (this.vel.length() > this.data.maxSpeed) this.vel.setLength(this.data.maxSpeed);
+    if (rig.y < -30) { rig.set(0, 0, 0); this.vel.set(0, 0, 0); }   // fell off the world
+  }
+});
 
-                if (!this.isGrounded) this.velocity.y += this.gravity * dt;
+/* ---------- Player model that follows your head ---------- */
+AFRAME.registerComponent('gtag-avatar', {
+  schema: {height: {default: 0.55}, yawOffset: {default: 0}, drop: {default: 0.4}},
+  init: function () {
+    this.cam = document.querySelector('#camera');
+    this.el.addEventListener('model-loaded', () => {
+      const m = this.el.getObject3D('mesh'); if (!m) return;
+      let box = new THREE.Box3().setFromObject(m), size = box.getSize(new THREE.Vector3());
+      m.scale.multiplyScalar(this.data.height / size.y);             // normalise size
+      box.setFromObject(m);
+      m.position.sub(box.getCenter(new THREE.Vector3()));            // centre on entity origin
+    });
+  },
+  tick: function () {
+    const c = this.cam.object3D, o = this.el.object3D;
+    o.position.set(c.position.x, c.position.y - this.data.drop, c.position.z);
+    o.rotation.set(0, new THREE.Euler().setFromQuaternion(c.quaternion, 'YXZ').y +
+      THREE.MathUtils.degToRad(this.data.yawOffset), 0);
+  }
+});
 
-                this.velocity.x *= this.friction;
-                this.velocity.z *= this.friction;
-
-                pos.addScaledVector(this.velocity, dt);
-
-                if (pos.y <= 0) {
-                    pos.y = 0;
-                    this.velocity.y = 0;
-                    this.isGrounded = true;
-                }
-            },
-            pushPlayer: function (forceVector) {
-                if (window.isGameOver) return;
-                this.velocity.add(forceVector);
-                this.isGrounded = false;
-            }
-        });
-
-        AFRAME.registerComponent('vr-hand-push-trigger', {
-            init: function () {
-                this.playerRig = document.querySelector('#player');
-                this.lastPosition = new THREE.Vector3();
-                this.currentVelocity = new THREE.Vector3();
-                if (this.el.object3D) this.el.object3D.getWorldPosition(this.lastPosition);
-            },
-            tick: function (time, timeDelta) {
-                if (window.isGameOver || !timeDelta) return;
-
-                let dt = timeDelta / 1000;
-                let currentPosition = new THREE.Vector3();
-
-                this.el.object3D.getWorldPosition(currentPosition);
-                this.currentVelocity.subVectors(currentPosition, this.lastPosition).divideScalar(dt);
-                this.lastPosition.copy(currentPosition);
-
-                // If hand hits near the ground floor level moving downwards
-                if (currentPosition.y <= 0.4 && this.currentVelocity.y < -1.5) {
-                    let locomotion = this.playerRig.components['gtag-physics-locomotion'];
-                    if (locomotion) {
-                        let pushForce = new THREE.Vector3(
-                            -this.currentVelocity.x * 0.5,
-                            Math.abs(this.currentVelocity.y) * 0.9,
-                            -this.currentVelocity.z * 0.5
-                        );
-                        locomotion.pushPlayer(pushForce);
-                    }
-                }
-            }
-        });
-
-        window.triggerPlayerDeath = function (message) {
-            if (window.isGameOver) return;
-            window.isGameOver = true;
-            document.querySelector('#death-message').innerText = message;
-            document.querySelector('#jumpscare-screen').style.display = 'flex';
-        };
-    </script>
+window.triggerPlayerDeath = function (message) {
+  if (window.isGameOver) return;
+  window.isGameOver = true;
+  document.querySelector('#death-message').innerText = message;
+  document.querySelector('#jumpscare-screen').style.display = 'flex';
+};
+</script>
 </head>
-<body style="margin: 0; padding: 0; overflow: hidden; background-color: #000;">
+<body style="margin:0;padding:0;overflow:hidden;background:#000;">
 
-    <div id="jumpscare-screen" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; color: #ff0000; z-index: 9999; font-family: sans-serif; flex-direction: column; justify-content: center; align-items: center;">
-        <h1 id="death-message">🚨 GAME OVER 🚨</h1>
-        <button onclick="window.location.reload()" style="padding: 10px 20px; font-size: 1.5rem; background: red; color: #fff; border: none; cursor: pointer;">RESTART</button>
-    </div>
+<div id="jumpscare-screen" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#000;color:#f00;z-index:9999;font-family:sans-serif;flex-direction:column;justify-content:center;align-items:center;">
+  <h1 id="death-message">🚨 GAME OVER 🚨</h1>
+  <button onclick="window.location.reload()" style="padding:10px 20px;font-size:1.5rem;background:red;color:#fff;border:none;cursor:pointer;">RESTART</button>
+</div>
 
-    <a-scene>
-        <a-sky id="skyBox" color="#87CEEB"></a-sky>
-        <a-plane position="0 0 0" rotation="-90 0 0" width="100" height="100" color="#11aa44"></a-plane>
-        <a-box position="0 1 -5" width="1" height="1" depth="1" color="#ff0000"></a-box>
+<a-scene>
+  <a-assets>
+    <a-asset-item id="monke" src="gtag_fangame_starter_playermodel.glb"></a-asset-item>
+  </a-assets>
 
-        <!-- Player rig: physics lives here, camera and hands are children -->
-        <a-entity id="player" gtag-physics-locomotion position="0 0 0">
-            <a-camera id="camera" look-controls wasd-controls="enabled: false" position="0 1.6 0"></a-camera>
+  <a-sky color="#87CEEB"></a-sky>
+  <a-plane position="0 0 0" rotation="-90 0 0" width="100" height="100" color="#4a6b3a" roughness="1"></a-plane>
 
-            <!-- Left hand tracked controller -->
-            <a-entity id="left-hand" hand-controls="hand: left" vr-hand-push-trigger></a-entity>
+  <!-- Anything with class="solid" can be climbed / pushed off -->
+  <a-box class="solid" position="0 1 -5" width="1" height="2" depth="1" color="#ff0000"></a-box>
+  <a-box class="solid" position="4 0.75 -8" width="3" height="1.5" depth="3" color="#8b5a2b"></a-box>
+  <a-box class="solid" position="-5 1.5 -12" width="3" height="3" depth="3" color="#6b6b6b"></a-box>
+  <a-box class="solid" position="0 2.5 -16" width="6" height="0.5" depth="2" color="#c9a227"></a-box>
 
-            <!-- Right hand tracked controller -->
-            <a-entity id="right-hand" hand-controls="hand: right" vr-hand-push-trigger></a-entity>
-        </a-entity>
-    </a-scene>
+  <!-- Player rig -->
+  <a-entity id="player" gtag-locomotion position="0 0 0">
+    <a-camera id="camera" look-controls wasd-controls="enabled: false" position="0 1.6 0"></a-camera>
+    <a-entity gtag-avatar gltf-model="#monke"></a-entity>
+
+    <a-entity id="left-hand" hand-controls="hand: left">
+      <a-sphere radius="0.06" color="#ffb347"></a-sphere>
+    </a-entity>
+    <a-entity id="right-hand" hand-controls="hand: right">
+      <a-sphere radius="0.06" color="#ffb347"></a-sphere>
+    </a-entity>
+  </a-entity>
+</a-scene>
 
 </body>
 </html>

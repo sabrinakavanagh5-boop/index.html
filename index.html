@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>Gorilla Arena Escape: Pure HTML Build</title>
+    <title>Gorilla Arena Escape: Final Fixed Build</title>
     
     <!-- Stable production loading for the A-Frame core framework -->
-    <script src="https://aframe.io"></script>
+    <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
 </head>
 <body>
 
-    <!-- 1. THE MAIN 3D VR SCENE -->
+    <!-- 1. MAIN 3D SCENE ROOT -->
     <a-scene>
         
         <!-- 2. GAME ASSETS PRELOADER -->
@@ -18,59 +18,59 @@
             <a-asset-item id="monke-avatar" src="https://githack.com"></a-asset-item>
         </a-assets>
 
-        <!-- 3. ENVIRONMENT LIGHTING & SKY -->
+        <!-- 3. ENVIRONMENT LIGHTING & BACKDROP -->
         
         
         <a-sky id="skyBox" color="#1a1a24"></a-sky>
         
-        <!-- The Main Floor Surface -->
+        <!-- Main Arena Floor Ground -->
         <a-plane position="0 0 0" rotation="-90 0 0" width="200" height="200" color="#222" metalness="0.4"></a-plane>
 
 
         <!-- 4. AREA 1: THE EXTENDED SPAWN LOBBY -->
-        <!-- Lobby Walls -->
+        <!-- Corridor Walls -->
         <a-box position="-6 4 30" width="0.5" height="8" depth="36" color="#333" metalness="0.7"></a-box>
         <a-box position="6 4 30" width="0.5" height="8" depth="36" color="#333" metalness="0.7"></a-box>
         <a-box position="0 4 48" width="12" height="8" depth="0.5" color="#222" metalness="0.8"></a-box>
 
-        <!-- Interactive Gate Unlock Button Terminal -->
+        <!-- Door Switch Terminal -->
         <a-box id="unlockButton" position="2 1.2 12.5" width="0.4" height="0.4" depth="0.2" color="#ff0000">
             <a-text value="SLAP TO ESCAPE" position="-0.7 0.4 0.1" scale="0.5 0.5 0.5" color="#fff"></a-text>
         </a-box>
 
-        <!-- THE SECURE SLIDING GATE DOOR -->
-        <!-- Listens natively for a click on the #unlockButton asset and animates upward into the ceiling ceiling structure -->
+        <!-- SECURITY SLIDING DOOR -->
+        <!-- Native animation node triggered instantly when a player hovers or clicks #unlockButton -->
         <a-box id="hallwayDoor" position="0 4 12" width="12" height="8" depth="0.5" color="#444" metalness="0.9"
                animation__open="property: position; to: 0 11 12; dur: 1800; easing: easeOutQuad; startEvents: click; eventTarget: #unlockButton">
         </a-box>
 
 
-        <!-- 5. AREA 2: THE MONSTER OBSERVATION WINGS (CROSS INTERSECTIONS) -->
-        <!-- Left Wing Chamber -->
+        <!-- 5. AREA 2: THE MONSTER OBSERVATION WINGS (CROSS SECTIONS) -->
+        <!-- Left Wing Wingwall -->
         <a-box position="-20 4 -6" width="16" height="8" depth="0.5" color="#2b2b2b"></a-box>
         <a-box position="-20 4 6" width="16" height="8" depth="0.5" color="#2b2b2b"></a-box>
         <a-box position="-28 4 0" width="0.5" height="8" depth="12" color="#111"></a-box>
 
-        <!-- Right Wing Chamber -->
+        <!-- Right Wing Wingwall -->
         <a-box position="20 4 -6" width="16" height="8" depth="0.5" color="#2b2b2b"></a-box>
         <a-box position="20 4 6" width="16" height="8" depth="0.5" color="#2b2b2b"></a-box>
         <a-box position="28 4 0" width="0.5" height="8" depth="12" color="#111"></a-box>
 
 
-        <!-- 6. AREA 3: THE SPIKE TRAP RUNWAY RUNWAY (TRUE RUNWAY COORDINATES) -->
-        <!-- Long Runway Wall Geometry Layout -->
+        <!-- 6. AREA 3: THE SPIKE TRAP CORRIDOR -->
+        <!-- Main Runway Boundaries -->
         <a-box position="-6 4 -21" width="0.5" height="8" depth="30" color="#2b2b2b"></a-box>
         <a-box position="6 4 -21" width="0.5" height="8" depth="30" color="#2b2b2b"></a-box>
         <a-box position="0 4 -36" width="12" height="8" depth="0.5" color="#222"></a-box> 
 
-        <!-- Looping Hazard Spotlight -->
+        <!-- Hazard Alert Light -->
         
 
-        <!-- THE AUTOMATED LOOPING SPIKED CEILING MECHANISM -->
-        <!-- Automatically shifts from Y: 9 down to Y: 1.2 and alternates back up smoothly on an endless loop -->
+        <!-- LOOPING SPIKED CEILING ASSEMBLY -->
+        <!-- Pure HTML looping movement node traveling continuously between Y: 9.0 and Y: 1.2 -->
         <a-box id="spikedCeiling" position="0 9.0 -21" width="11.5" height="1" depth="30" color="#555" metalness="0.8"
                animation__drop="property: position; from: 0 9.0 -21; to: 0 1.2 -21; dur: 2500; dir: alternate; loop: true; easing: easeInQuad">
-            <!-- Array of Low-Poly Spikes attached directly to the base of the ceiling array -->
+            <!-- Geometric Low-Poly Spikes attached directly to the base frame -->
             <a-cone position="-3 -1 -10" radius-bottom="0.4" height="1.5" rotation="180 0 0" color="#aaa"></a-cone>
             <a-cone position="3 -1 -10" radius-bottom="0.4" height="1.5" rotation="180 0 0" color="#aaa"></a-cone>
             <a-cone position="-3 -1 0" radius-bottom="0.4" height="1.5" rotation="180 0 0" color="#aaa"></a-cone>
@@ -81,29 +81,28 @@
         </a-box>
 
 
-        <!-- 7. THE VR TRACKED PLAYER CONTROLLER RIG -->
+        <!-- 7. THE VR PLAYER AVATAR ASSEMBLY -->
          
-            
-            <!-- Head Track View Setup with Reticle Cursor Link -->
+            <!-- Central Main Sight Camera View -->
             <a-camera id="camera" look-controls>
+                <!-- Central Reticle Cursor for selecting the #unlockButton switch node -->
                 <a-cursor raycaster="objects: #unlockButton" color="yellow" scale="0.5 0.5 0.5"></a-cursor>
                 
-                <!-- Head Flashlight item tracking look direction -->
+                <!-- Sight Attached Spotlight -->
                 
             </a-camera>
 
-            <!-- Left Controller Hand Mesh Binding -->
+            <!-- Tracked Controller Entities loading your custom .glb playermodel asset -->
             
                 <a-gltf-model src="#monke-avatar" rotation="0 180 0" scale="0.4 0.4 0.5"></a-gltf-model>
             
             
-            <!-- Right Controller Hand Mesh Binding -->
             
                 <a-gltf-model src="#monke-avatar" rotation="0 180 0" scale="0.4 0.4 0.5"></a-gltf-model>
             
 
-        
+         <!-- FIXED: Properly terminates the player rig layer -->
 
-    </a-scene>
+    </a-scene> <!-- FIXED: Properly terminates the 3D scene engine layer -->
 </body>
 </html>

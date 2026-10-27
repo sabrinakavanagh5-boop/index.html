@@ -1,6 +1,6 @@
 <!DOCTYPE html>
-<html>
-<script src="https://aframe.io"></script>
+<html lang="en">
+<head>
     <meta charset="utf-8">
     <title>Gorilla Escape: Cave Maze</title>
     <script src="https://aframe.io"></script>
@@ -38,10 +38,12 @@
 
         // --- FLASHLIGHT ORIENTATION TRACKING ---
         AFRAME.registerComponent('flashlight-track', {
+            init: function () {
+                this.camera = document.querySelector('#camera');
+            },
             tick: function () {
-                var camera = document.querySelector('#camera');
-                if (camera) {
-                    this.el.object3D.rotation.copy(camera.object3D.rotation);
+                if (this.camera) {
+                    this.el.object3D.rotation.copy(this.camera.object3D.rotation);
                 }
             }
         });
@@ -53,6 +55,7 @@
                 this.isGrounded = false;
                 this.gravity = -9.8;
                 this.friction = 0.96;
+                this.camera = document.querySelector('#camera');
 
                 window.addEventListener('mousedown', () => {
                     this.pushPlayer(new THREE.Vector3(0, 4, -5)); 
@@ -79,9 +82,9 @@
                 }
             },
             pushPlayer: function(forceVector) {
+                if (!this.camera) return;
                 var direction = new THREE.Vector3();
-                var camera = document.querySelector('#camera');
-                camera.object3D.getWorldDirection(direction);
+                this.camera.object3D.getWorldDirection(direction);
                 
                 this.velocity.x = -direction.x * forceVector.z;
                 this.velocity.y = forceVector.y;
@@ -115,5 +118,33 @@
         <button class="toggle-btn" onclick="window.toggleDayNight()">Toggle Day/Night</button>
     </div>
 
-    <a-scene day-night-toggle>
- 
+    <a-scene day-night-toggle renderer="colorManagement: true">
+        <a-assets>
+            <a-mixin id="wall" geometry="primitive: box; width: 4; height: 6; depth: 0.5" material="color: #332222; roughness: 0.9"></a-mixin>
+        </a-assets>
+
+        <a-light id="ambientLight" type="ambient" color="#110505"></a-light>
+        <a-light id="sunLight" type="directional" intensity="0.2" color="#ff0000" position="-1 4 2"></a-light>
+
+        
+            
+                
+                    <a-light type="spot" color="#fff" intensity="1.5" angle="30" penumbra="0.5" distance="15" rotation="0 180 0"></a-light>
+                
+            
+            
+            
+            
+        
+
+        <a-plane rotation="-90 0 0" width="50" height="50" color="#1a1111" roughness="1"></a-plane>
+
+        
+            
+            
+            
+            
+        
+    </a-scene>
+</body>
+</html>

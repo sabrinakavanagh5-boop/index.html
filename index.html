@@ -2,30 +2,36 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>Gorilla Escape: Cave Maze</title>
+    <title>Gorilla Arena Escape: Lobby & Hallway</title>
     
-    <!-- Core stable VR engine load -->
+    <!-- Stable production loading for the A-Frame core framework -->
     <script src="https://aframe.io"></script>
 
-    <!-- Custom game scripts running on top of A-Frame -->
+    <!-- Custom Gorilla Tag framework scripts running natively in engine -->
     <script>
+        window.isGameOver = false;
+
         // --- DAY/NIGHT TOGGLE SYSTEM ---
         AFRAME.registerComponent('day-night-toggle', {
             init: function () {
-                this.isDay = false;
+                this.isDay = true;
                 this.ambientLight = document.querySelector('#ambientLight');
                 this.sunLight = document.querySelector('#sunLight');
+                this.sky = document.querySelector('#skyBox');
                 
                 window.toggleDayNight = () => {
+                    if (window.isGameOver) return;
                     this.isDay = !this.isDay;
                     if (this.isDay) {
                         this.ambientLight.setAttribute('color', '#bbbbbb');
                         this.sunLight.setAttribute('intensity', '0.8');
                         this.sunLight.setAttribute('color', '#ffffff');
+                        this.sky.setAttribute('color', '#1a1a24');
                     } else {
-                        this.ambientLight.setAttribute('color', '#110505');
-                        this.sunLight.setAttribute('intensity', '0.2');
-                        this.sunLight.setAttribute('color', '#ff0000');
+                        this.ambientLight.setAttribute('color', '#05050f');
+                        this.sunLight.setAttribute('intensity', '0.1');
+                        this.sunLight.setAttribute('color', '#ff0055');
+                        this.sky.setAttribute('color', '#020205');
                     }
                 };
             }
@@ -46,6 +52,7 @@
                 this.camera = document.querySelector('#camera');
             },
             tick: function () {
+                if (window.isGameOver) return;
                 if (this.camera) {
                     this.el.object3D.rotation.copy(this.camera.object3D.rotation);
                 }
@@ -62,10 +69,11 @@
                 this.camera = document.querySelector('#camera');
 
                 window.addEventListener('mousedown', () => {
-                    this.pushPlayer(new THREE.Vector3(0, 4, -5)); 
+                    this.pushPlayer(new THREE.Vector3(0, 4.5, -5.5));
                 });
             },
             tick: function (time, timeDelta) {
+                if (window.isGameOver) return;
                 if (!timeDelta) return;
                 let dt = timeDelta / 1000;
                 let pos = this.el.object3D.position;
@@ -86,7 +94,7 @@
                 }
             },
             pushPlayer: function(forceVector) {
-                if (!this.camera) return;
+                if (window.isGameOver || !this.camera) return;
                 var direction = new THREE.Vector3();
                 this.camera.object3D.getWorldDirection(direction);
                 
@@ -96,77 +104,129 @@
                 this.isGrounded = false;
             }
         });
-    </script>
 
-    <!-- UI Overlay Styling -->
-    <style>
-        #ui-layer {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            z-index: 9999;
-        }
-        .toggle-btn {
-            padding: 12px 24px;
-            background: #222;
-            color: #fff;
-            border: 2px solid #fff;
-            font-family: sans-serif;
-            font-weight: bold;
-            cursor: pointer;
-            border-radius: 5px;
-        }
-        .toggle-btn:hover { background: #444; }
-    </style>
-</head>
-<body>
-    <!-- 2D interface panel for desktop testing -->
-    <div id="ui-layer">
-        <button class="toggle-btn" onclick="window.toggleDayNight()">Toggle Day/Night</button>
-    </div>
+        // --- DOOR OPENER SYSTEM ---
+        AFRAME.registerComponent('door-opener', {
+            init: function () {
+                this.door = document.querySelector('#hallwayDoor');
+                this.isOpened = false;
+                this.el.addEventListener('click', () => {
+                    if (this.isOpened) return;
+                    this.isOpened = true;
+                    // Animate the door moving up into the roof structure
+                    this.door.setAttribute('animation', 'property: position; to: 0 6.5 -24.8; dur: 1500; easing: easeOutQuad');
+                    // Change the button color to indicate unlock success
+                    this.el.setAttribute('color', '#00ff00'); 
+                });
+            }
+        });
 
-    <!-- Active 3D Scene -->
-    <a-scene day-night-toggle renderer="colorManagement: true">
-        
-        <!-- Asset Preloading: Registers your customized player model and materials -->
-        <a-assets>
-            <a-mixin id="wall" geometry="primitive: box; width: 4; height: 6; depth: 0.5" material="color: #332222; roughness: 0.9"></a-mixin>
-            <a-asset-item id="gorilla-avatar" src="https://githack.com"></a-asset-item>
-        </a-assets>
-
-        <!-- Lighting Elements -->
-        <a-light id="ambientLight" type="ambient" color="#110505"></a-light>
-        <a-light id="sunLight" type="directional" intensity="0.2" color="#ff0000" position="-1 4 2"></a-light>
-
-        <!-- Player Rig (Physics, Tracking, Controllers, and Avatar Model) -->
-        
+        // --- METHOD TO TRIGGER DEATH OVERLAYS ---
+        window.triggerPlayerDeath = function(message) {
+            window.isGameOver = true;
+            document.querySelector('#death-message').innerText = message;
+            document.querySelector('#jumpscare-screen').style.display = 'flex';
             
+            let sceneEl = document.querySelector('a-scene');
+            let flash = document.createElement('a-sky');
+            flash.setAttribute('color', '#ff0000');
+            sceneEl.appendChild(flash);
+        };
+
+        // --- FALLING SPIKE ROOF SYSTEM ---
+        AFRAME.registerComponent('spiked-roof-trap', {
+            init: function () {
+                this.player = document.querySelector('#player');
+                this.trapState = 'IDLE'; 
+                this.timer = 0;
+                this.trapInterval = 30; // Triggers every 30 seconds
+                this.warningDuration = 3.0; 
+                this.dropSpeed = 15.0; 
+                this.retractSpeed = 1.5; 
+                this.initialY = 9.0;
+                this.lowestY = 1.5; 
+                this.trapLight = document.querySelector('#trapLight');
+            },
+            tick: function (time, timeDelta) {
+                if (window.isGameOver) return;
+                if (!timeDelta) return;
+                let dt = timeDelta / 1000;
+                let pos = this.el.object3D.position;
+
+                this.timer += dt;
+
+                if (this.trapState === 'IDLE' && this.timer >= this.trapInterval) {
+                    this.trapState = 'WARNING';
+                    this.timer = 0;
+                    this.trapLight.setAttribute('light', 'color: #ff0000; intensity: 2');
+                }
                 
-                <!-- Gorilla Playermodel Attached directly to your camera viewport -->
+                else if (this.trapState === 'WARNING' && this.timer >= this.warningDuration) {
+                    this.trapState = 'DROPPING';
+                    this.timer = 0;
+                }
                 
-
-                <!-- Flashlight Tracking Setup -->
+                else if (this.trapState === 'DROPPING') {
+                    pos.y -= this.dropSpeed * dt;
+                    if (pos.y <= this.lowestY) {
+                        pos.y = this.lowestY;
+                        this.trapState = 'CRUSHED';
+                        this.timer = 0;
+                    }
+                    this.checkCrushCollision();
+                }
                 
-                    <a-light type="spot" color="#fff" intensity="1.5" angle="30" penumbra="0.5" distance="15" rotation="0 180 0"></a-light>
+                else if (this.trapState === 'CRUSHED' && this.timer >= 2.0) {
+                    this.trapState = 'RETRACTING';
+                    this.timer = 0;
+                    this.trapLight.setAttribute('light', 'color: #333; intensity: 0.5');
+                }
                 
-            
-            
-            <!-- Left and Right VR Controller setups with event listeners -->
-            
-            
-        
+                else if (this.trapState === 'RETRACTING') {
+                    pos.y += this.retractSpeed * dt;
+                    if (pos.y >= this.initialY) {
+                        pos.y = this.initialY;
+                        this.trapState = 'IDLE';
+                        this.timer = 0;
+                    }
+                }
 
-        <!-- Environment Floor -->
-        <a-plane rotation="-90 0 0" width="50" height="50" color="#1a1111" roughness="1"></a-plane>
+                if (this.trapState === 'WARNING') {
+                    let flash = Math.sin(time / 100) > 0;
+                    this.trapLight.setAttribute('light', 'intensity', flash ? 2 : 0);
+                }
+            },
+            checkCrushCollision: function() {
+                if (!this.player) return;
+                let playerY = this.player.object3D.position.y + 1.6; 
+                let roofY = this.el.object3D.position.y - 0.5; 
+                let playerZ = this.player.object3D.position.z;
+                let playerX = this.player.object3D.position.x;
 
-        <!-- Basic Maze Layout Structure for player tracking validation -->
-        
-            
-            
-            
-            
-        
+                // Check collision inside hallway tracking space boundaries
+                if (roofY <= playerY && playerZ < -25 && playerZ > -75 && Math.abs(playerX) < 4) {
+                    window.triggerPlayerDeath("CRUSHED BY SPIKE TRAP!");
+                }
+            }
+        });
 
-    </a-scene>
-</body>
-</html>
+        window.restartGame = () => {
+            window.isGameOver = false;
+            document.querySelector('#jumpscare-screen').style.display = 'none';
+            
+            // Reset player to the center spawning coordinates of the new lobby
+            document.querySelector('#player').setAttribute('position', '0 0 0'); 
+            document.querySelector('#player').components['gtag-locomotion'].velocity.set(0,0,0);
+            
+            // Reset door and buttons
+            let opener = document.querySelector('#doorBtn');
+            if (opener) {
+                opener.components['door-opener'].isOpened = false;
+                opener.setAttribute('color', '#ff0000');
+            }
+            document.querySelector('#hallwayDoor').setAttribute('position', '0 3 -24.8');
+            
+            // Reset hallway trap coordinates
+            document.querySelector('#movingRoof').setAttribute('position', '0 9 -50');
+            document.querySelector('#movingRoof').components['spiked-roof-trap'].trapState = 'IDLE';
+            document.querySelector('#movingRoof').components['spiked-roof-trap'].timer = 0;

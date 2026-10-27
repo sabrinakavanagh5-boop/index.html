@@ -3,14 +3,10 @@
 <head>
     <meta charset="utf-8">
     <title>Terrified Monkes</title>
-    <!-- FIXED: Using the official unpkg build distribution to resolve CORS WebGL black screen crashes -->
     <script src="https://unpkg.com"></script>
-
-    <!-- --- CORE GAME ENGINE BLOCK --- -->
     <script>
         window.isGameOver = false;
 
-        // Locomotion System
         AFRAME.registerComponent('gtag-physics-locomotion', {
             init: function () {
                 this.velocity = new THREE.Vector3(0, 0, 0);
@@ -44,7 +40,6 @@
             }
         });
 
-        // Controller System
         AFRAME.registerComponent('vr-hand-push-trigger', {
             init: function () {
                 this.playerRig = document.querySelector('#player');
@@ -62,55 +57,39 @@
                 if (currentPosition.y <= 0.4 && this.currentVelocity.y < -1.5) {
                     let locomotion = this.playerRig.components['gtag-physics-locomotion'];
                     if (locomotion) {
-                        let pushForce = new THREE.Vector3(
-                            -this.currentVelocity.x * 0.5,
-                            Math.abs(this.currentVelocity.y) * 0.9, 
-                            -this.currentVelocity.z * 0.5
-                        );
-                        this.playerRig.components['gtag-physics-locomotion'].pushPlayer(pushForce);
+                        let pushForce = new THREE.Vector3(-this.currentVelocity.x * 0.5, Math.abs(this.currentVelocity.y) * 0.9, -this.currentVelocity.z * 0.5);
+                        locomotion.pushPlayer(pushForce);
                     }
                 }
             }
         });
+
+        window.triggerPlayerDeath = function(message) {
+            if (window.isGameOver) return;
+            window.isGameOver = true;
+            document.querySelector('#death-message').innerText = message;
+            document.querySelector('#jumpscare-screen').style.display = 'flex';
+        };
     </script>
 </head>
 <body style="margin: 0; padding: 0; overflow: hidden; background-color: #000;">
 
-    <!-- CLEAN JUMPSCARE CONTAINER -->
     <div id="jumpscare-screen" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; color: #ff0000; z-index: 9999; font-family: sans-serif; flex-direction: column; justify-content: center; align-items: center;">
-        <h1>🚨 GAME OVER 🚨</h1>
+        <h1 id="death-message">🚨 GAME OVER 🚨</h1>
         <button onclick="window.location.reload()" style="padding: 10px 20px; font-size: 1.5rem; background: red; color: #fff; border: none; cursor: pointer;">RESTART</button>
     </div>
 
-    <!-- PRIMARY 3D CANVAS ROUTINE -->
-    <a-scene renderer="antialias: true; colorManagement: true;">
-        
-        <a-assets></a-assets>
-
-        <!-- Dynamic Scene Ambient Lighting to guarantee visibility -->
-        
-        
-
-        <!-- Environment Base Elements -->
-        <a-sky id="skyBox" color="#87CEEB"></a-sky> <!-- Bright blue sky to definitively confirm rendering -->
+    <a-scene>
+        <a-sky id="skyBox" color="#87CEEB"></a-sky>
         <a-plane position="0 0 0" rotation="-90 0 0" width="100" height="100" color="#11aa44"></a-plane>
-
-        <!-- Basic Testing Target Block -->
         <a-box position="0 1 -5" width="1" height="1" depth="1" color="#ff0000"></a-box>
 
-        <!-- PLAYER CORE BASE LAYER -->
         
             
             
             
-                <a-sphere radius="0.05" color="#ff0000"></a-sphere>
-            
-            
-            
-                <a-sphere radius="0.05" color="#0000ff"></a-sphere>
-            
         
-
     </a-scene>
+
 </body>
 </html>

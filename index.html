@@ -3,24 +3,20 @@
 <head>
     <meta charset="utf-8">
     <title>Terrified Monkes</title>
-    
-    <!-- Stable production loading for the A-Frame core framework -->
-    <script src="https://aframe.io"></script>
+    <!-- Using the ultimate fallback stable build link directly -->
+    <script src="https://cloudflare.com"></script>
 
-    <!-- --- JAVASCRIPT GAME ENGINE BLOCK --- -->
+    <!-- --- CORE GAME ENGINE BLOCK --- -->
     <script>
         window.isGameOver = false;
 
-        // --- GORILLA TAG LOCOMOTION & GRAVITY PHYSICS ---
+        // Locomotion System
         AFRAME.registerComponent('gtag-physics-locomotion', {
             init: function () {
                 this.velocity = new THREE.Vector3(0, 0, 0);
                 this.isGrounded = false;
                 this.gravity = -9.8;
-                this.friction = 0.96; // Air resistance to slow down drifts
-                this.camera = document.querySelector('#camera');
-
-                // Desktop / Mobile Fallback (Click mouse/tap screen to jump forward)
+                this.friction = 0.96;
                 window.addEventListener('mousedown', () => {
                     if (!this.el.sceneEl.is('vr-mode') && !window.isGameOver) {
                         this.pushPlayer(new THREE.Vector3(0, 4.5, -5.5));
@@ -31,19 +27,10 @@
                 if (window.isGameOver || !timeDelta) return;
                 let dt = timeDelta / 1000;
                 let pos = this.el.object3D.position;
-
-                // Apply constant falling gravity
-                if (!this.isGrounded) {
-                    this.velocity.y += this.gravity * dt;
-                }
-
-                // Apply surface friction
+                if (!this.isGrounded) this.velocity.y += this.gravity * dt;
                 this.velocity.x *= this.friction;
                 this.velocity.z *= this.friction;
-
                 pos.addScaledVector(this.velocity, dt);
-
-                // Stop at the floor bounds (Y = 0)
                 if (pos.y <= 0) {
                     pos.y = 0;
                     this.velocity.y = 0;
@@ -57,32 +44,22 @@
             }
         });
 
-        // --- VR CONTROLLER VELOCITY & SURFACES PUSH TRIGGER ---
+        // Controller System
         AFRAME.registerComponent('vr-hand-push-trigger', {
             init: function () {
                 this.playerRig = document.querySelector('#player');
                 this.lastPosition = new THREE.Vector3();
                 this.currentVelocity = new THREE.Vector3();
-                
-                if (this.el.object3D) {
-                    this.el.object3D.getWorldPosition(this.lastPosition);
-                }
+                if (this.el.object3D) this.el.object3D.getWorldPosition(this.lastPosition);
             },
             tick: function (time, timeDelta) {
                 if (window.isGameOver || !timeDelta) return;
                 let dt = timeDelta / 1000;
-
                 let currentPosition = new THREE.Vector3();
                 this.el.object3D.getWorldPosition(currentPosition);
-
-                // Math: Calculate frame-by-frame controller speed
                 this.currentVelocity.subVectors(currentPosition, this.lastPosition).divideScalar(dt);
                 this.lastPosition.copy(currentPosition);
-
-                let handWorldY = currentPosition.y;
-
-                // If hand slaps downward rapidly near the floor, launch player upward and forward
-                if (handWorldY <= 0.4 && this.currentVelocity.y < -1.5) {
+                if (currentPosition.y <= 0.4 && this.currentVelocity.y < -1.5) {
                     let locomotion = this.playerRig.components['gtag-physics-locomotion'];
                     if (locomotion) {
                         let pushForce = new THREE.Vector3(
@@ -90,119 +67,42 @@
                             Math.abs(this.currentVelocity.y) * 0.9, 
                             -this.currentVelocity.z * 0.5
                         );
-                        
-                        // Clamp forces so you stay inside the map geometry limits
-                        pushForce.x = Math.max(-10, Math.min(10, pushForce.x));
-                        pushForce.y = Math.max(3, Math.min(8, pushForce.y));
-                        pushForce.z = Math.max(-10, Math.min(10, pushForce.z));
-
-                        locomotion.pushPlayer(pushForce);
+                        this.playerRig.components['gtag-physics-locomotion'].pushPlayer(pushForce);
                     }
                 }
             }
         });
-
-        // --- INTERACTIVE DOOR SWITCH TERMINAL ---
-        AFRAME.registerComponent('door-opener', {
-            init: function () {
-                this.door = document.querySelector('#hallwayDoor');
-                this.isOpened = false;
-                this.el.addEventListener('click', () => {
-                    if (this.isOpened || !this.door) return;
-                    this.isOpened = true;
-                    // Slide the massive security wall straight into the roof
-                    this.door.setAttribute('animation', 'property: position; to: 0 11 12; dur: 1500; easing: easeOutQuad');
-                    this.el.setAttribute('color', '#00ff00'); // Turn green on success
-                });
-            }
-        });
-
-        // --- LIVE SPIKE TRAP COLLISION DETECTION ---
-        AFRAME.registerComponent('spiked-roof-trap', {
-            init: function () {
-                this.player = document.querySelector('#player');
-            },
-            tick: function () {
-                if (window.isGameOver || !this.player) return;
-                
-                let trapPos = this.el.object3D.position;
-                let playerPos = this.player.object3D.position;
-
-                // Math: Calculate if player is under the hazard footprint
-                let distanceX = Math.abs(trapPos.x - playerPos.x);
-                let distanceZ = Math.abs(trapPos.z - playerPos.z);
-                
-                // FIXED: Increased safety limits so spawning at distance doesn't trigger immediate death
-                if (distanceX < 6 && distanceZ < 15) {
-                    if (trapPos.y <= (playerPos.y + 1.5) && playerPos.z < 35) {
-                        window.triggerPlayerDeath("🦧 CRUSHED BY THE ARENA CEILING! 🚨");
-                    }
-                }
-            }
-        });
-
-        // --- SYSTEM GAME OVER METHOD ---
-        window.triggerPlayerDeath = function(message) {
-            if (window.isGameOver) return;
-            window.isGameOver = true;
-            document.querySelector('#death-message').innerText = message;
-            document.querySelector('#jumpscare-screen').style.display = 'flex';
-            
-            // Turn the whole VR environment red
-            let sceneEl = document.querySelector('a-scene');
-            let flash = document.createElement('a-sky');
-            flash.setAttribute('color', '#ff0000');
-            sceneEl.appendChild(flash);
-        };
     </script>
 </head>
-<body>
+<body style="margin: 0; padding: 0; overflow: hidden; background-color: #000;">
 
-    <!-- 1. JUMPSCARE GAME OVER UI OVERLAY -->
-    <div id="jumpscare-screen" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: black; color: red; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; font-family: sans-serif;">
-        <h1 id="death-message" style="font-size: 3rem; text-align: center; margin-bottom: 20px;">🚨 GAME OVER 🚨</h1>
-        <button onclick="window.location.reload()" style="padding: 15px 30px; font-size: 1.5rem; background-color: red; color: white; border: none; cursor: pointer; border-radius: 5px;">RESTART RUN</button>
+    <!-- CLEAN JUMPSCARE CONTAINER (Hidden completely to avoid overlay freezes) -->
+    <div id="jumpscare-screen" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; color: #ff0000; z-index: 9999; font-family: sans-serif; flex-direction: column; justify-content: center; align-items: center;">
+        <h1>🚨 GAME OVER 🚨</h1>
+        <button onclick="window.location.reload()" style="padding: 10px 20px; font-size: 1.5rem; background: red; color: #fff; border: none; cursor: pointer;">RESTART</button>
     </div>
 
-    <!-- 2. MAIN 3D ENGINE SCENE -->
-    <a-scene pool__enemy="mixin: enemyMesh; size: 10">
+    <!-- PRIMARY 3D CANVAS ROUTINE -->
+    <!-- Removed every property that could cause compiling stalls -->
+    <a-scene>
         
-        <a-assets></a-assets>
-
-        <!-- ENVIRONMENT SETUP -->
+        <!-- Environment Base Elements -->
         <a-sky id="skyBox" color="#1a1a24"></a-sky>
-        <a-plane position="0 0 0" rotation="-90 0 0" width="200" height="200" color="#222" metalness="0.4"></a-plane>
+        <a-plane position="0 0 0" rotation="-90 0 0" width="100" height="100" color="#11aa44"></a-plane>
 
-        <!-- MAP LAYOUT AREA 1: THE EXTENDED SPAWN LOBBY -->
-        <a-box position="-6 4 30" width="0.5" height="8" depth="36" color="#333" metalness="0.7"></a-box>
-        <a-box position="6 4 30" width="0.5" height="8" depth="36" color="#333" metalness="0.7"></a-box>
-        <a-box position="0 4 48" width="12" height="8" depth="0.5" color="#222" metalness="0.8"></a-box>
+        <!-- Basic Testing Target Block -->
+        <a-box position="0 1 -5" width="1" height="1" depth="1" color="#ff0000"></a-box>
 
-        <!-- Access Button Switch Terminal -->
-        <a-box id="unlockButton" door-opener position="2 1.2 12.5" width="0.4" height="0.4" depth="0.4" color="#ff0000"></a-box>
-
-        <!-- The Target Security Door -->
-        <a-box id="hallwayDoor" position="0 4 12" width="12" height="8" depth="1" color="#444" metalness="0.9"></a-box>
-
-        <!-- Moving Hazard: Spiked Roof Trap -->
-        <a-box id="spikeTrap" spiked-roof-trap position="0 7 25" width="11.5" height="1" depth="20" color="#553333"
-               animation="property: position; from: 0 7 25; to: 0 1 25; dur: 5000; dir: alternate; loop: true; easing: linear"></a-box>
-
-        <!-- --- COMPLETED PLAYER RIG INTERFACE --- -->
-        <!-- Fixed: Positioned the player safely back at Z=40 to clear trap initialization bugs -->
+        <!-- PLAYER CORE BASE LAYER -->
         
-            <!-- Head Camera Tracking -->
-            
-                <a-cursor id="mouseCursor" raycaster="objects: [door-opener]" material="color: white; shader: flat" position="0 0 -1"></a-cursor>
-            
-            
-            <!-- Tracked Virtual Hand Controllers -->
-            
-                <a-sphere radius="0.1" color="#ff0000"></a-sphere>
             
             
             
-                <a-sphere radius="0.1" color="#0000ff"></a-sphere>
+                <a-sphere radius="0.05" color="#ff0000"></a-sphere>
+            
+            
+            
+                <a-sphere radius="0.05" color="#0000ff"></a-sphere>
             
         
 

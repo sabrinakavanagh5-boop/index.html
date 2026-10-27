@@ -164,12 +164,11 @@
     </div>
 
     <!-- 2. MAIN 3D ENGINE SCENE -->
-    <a-scene>
+    <!-- Removed timeout requirements so it boots instantly even if assets are weird -->
+    <a-scene pool__enemy="mixin: enemyMesh; size: 10">
         
-        <!-- GLTF AVATAR PRELOADER -->
-        <a-assets>
-            <a-asset-item id="monke-avatar" src="https://githack.com"></a-asset-item>
-        </a-assets>
+        <!-- REMOVED THE BROKEN GLTF TO PREVENT WHITE VOID HANGS -->
+        <a-assets></a-assets>
 
         <!-- ENVIRONMENT SETUP -->
         <a-sky id="skyBox" color="#1a1a24"></a-sky>
@@ -180,7 +179,7 @@
         <a-box position="6 4 30" width="0.5" height="8" depth="36" color="#333" metalness="0.7"></a-box>
         <a-box position="0 4 48" width="12" height="8" depth="0.5" color="#222" metalness="0.8"></a-box>
 
-        <!-- Access Button Switch Terminal (Repaired and Closed) -->
+        <!-- Access Button Switch Terminal -->
         <a-box id="unlockButton" door-opener position="2 1.2 12.5" width="0.4" height="0.4" depth="0.4" color="#ff0000"></a-box>
 
         <!-- The Target Security Door -->
@@ -190,11 +189,10 @@
         <a-box id="spikeTrap" spiked-roof-trap position="0 7 25" width="11.5" height="1" depth="20" color="#553333"
                animation="property: position; from: 0 7 25; to: 0 1 25; dur: 5000; dir: alternate; loop: true; easing: linear"></a-box>
 
-        <!-- --- RECONSTRUCTED PLAYER RIG WITH LOCOMOTION COMPONENTS --- -->
+        <!-- --- PLAYER RIG WITH LOCOMOTION COMPONENTS --- -->
         
             <!-- Head Camera -->
             
-                <!-- Raycaster cursor so desktop players can click the terminal button -->
                 <a-cursor id="mouseCursor" raycaster="objects: [door-opener]" material="color: white; shader: flat" position="0 0 -1"></a-cursor>
             
             
@@ -205,3 +203,10 @@
             
             <!-- Right Hand Tracked Controller -->
             
+                <a-sphere radius="0.1" color="#0000ff"></a-sphere>
+            
+        
+
+    </a-scene>
+</body>
+</html>

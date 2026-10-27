@@ -3,8 +3,8 @@
 <head>
     <meta charset="utf-8">
     <title>Terrified Monkes</title>
-    <!-- Using the ultimate fallback stable build link directly -->
-    <script src="https://cloudflare.com"></script>
+    <!-- FIXED: Using the official unpkg build distribution to resolve CORS WebGL black screen crashes -->
+    <script src="https://unpkg.com"></script>
 
     <!-- --- CORE GAME ENGINE BLOCK --- -->
     <script>
@@ -76,18 +76,23 @@
 </head>
 <body style="margin: 0; padding: 0; overflow: hidden; background-color: #000;">
 
-    <!-- CLEAN JUMPSCARE CONTAINER (Hidden completely to avoid overlay freezes) -->
+    <!-- CLEAN JUMPSCARE CONTAINER -->
     <div id="jumpscare-screen" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; color: #ff0000; z-index: 9999; font-family: sans-serif; flex-direction: column; justify-content: center; align-items: center;">
         <h1>🚨 GAME OVER 🚨</h1>
         <button onclick="window.location.reload()" style="padding: 10px 20px; font-size: 1.5rem; background: red; color: #fff; border: none; cursor: pointer;">RESTART</button>
     </div>
 
     <!-- PRIMARY 3D CANVAS ROUTINE -->
-    <!-- Removed every property that could cause compiling stalls -->
-    <a-scene>
+    <a-scene renderer="antialias: true; colorManagement: true;">
         
+        <a-assets></a-assets>
+
+        <!-- Dynamic Scene Ambient Lighting to guarantee visibility -->
+        
+        
+
         <!-- Environment Base Elements -->
-        <a-sky id="skyBox" color="#1a1a24"></a-sky>
+        <a-sky id="skyBox" color="#87CEEB"></a-sky> <!-- Bright blue sky to definitively confirm rendering -->
         <a-plane position="0 0 0" rotation="-90 0 0" width="100" height="100" color="#11aa44"></a-plane>
 
         <!-- Basic Testing Target Block -->

@@ -64,7 +64,6 @@
                 this.lastPosition = new THREE.Vector3();
                 this.currentVelocity = new THREE.Vector3();
                 
-                // Wait for object3D to sit tightly in world space
                 if (this.el.object3D) {
                     this.el.object3D.getWorldPosition(this.lastPosition);
                 }
@@ -133,9 +132,11 @@
                 let distanceX = Math.abs(trapPos.x - playerPos.x);
                 let distanceZ = Math.abs(trapPos.z - playerPos.z);
                 
-                // If you are inside the trap footprint, and it drops past head level (1.8m) -> Trigger Game Over!
-                if (distanceX < 6 && distanceZ < 15 && trapPos.y <= (playerPos.y + 1.8)) {
-                    window.triggerPlayerDeath("🦧 CRUSHED BY THE ARENA CEILING! 🚨");
+                // FIXED: Increased safety limits so spawning at distance doesn't trigger immediate death
+                if (distanceX < 6 && distanceZ < 15) {
+                    if (trapPos.y <= (playerPos.y + 1.5) && playerPos.z < 35) {
+                        window.triggerPlayerDeath("🦧 CRUSHED BY THE ARENA CEILING! 🚨");
+                    }
                 }
             }
         });
@@ -164,10 +165,8 @@
     </div>
 
     <!-- 2. MAIN 3D ENGINE SCENE -->
-    <!-- Removed timeout requirements so it boots instantly even if assets are weird -->
     <a-scene pool__enemy="mixin: enemyMesh; size: 10">
         
-        <!-- REMOVED THE BROKEN GLTF TO PREVENT WHITE VOID HANGS -->
         <a-assets></a-assets>
 
         <!-- ENVIRONMENT SETUP -->
@@ -189,19 +188,19 @@
         <a-box id="spikeTrap" spiked-roof-trap position="0 7 25" width="11.5" height="1" depth="20" color="#553333"
                animation="property: position; from: 0 7 25; to: 0 1 25; dur: 5000; dir: alternate; loop: true; easing: linear"></a-box>
 
-        <!-- --- PLAYER RIG WITH LOCOMOTION COMPONENTS --- -->
+        <!-- --- COMPLETED PLAYER RIG INTERFACE --- -->
+        <!-- Fixed: Positioned the player safely back at Z=40 to clear trap initialization bugs -->
         
-            <!-- Head Camera -->
+            <!-- Head Camera Tracking -->
             
                 <a-cursor id="mouseCursor" raycaster="objects: [door-opener]" material="color: white; shader: flat" position="0 0 -1"></a-cursor>
             
             
-            <!-- Left Hand Tracked Controller -->
+            <!-- Tracked Virtual Hand Controllers -->
             
                 <a-sphere radius="0.1" color="#ff0000"></a-sphere>
             
             
-            <!-- Right Hand Tracked Controller -->
             
                 <a-sphere radius="0.1" color="#0000ff"></a-sphere>
             

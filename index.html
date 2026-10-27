@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <!-- FIXED LINKS: Points directly to the stable game engine files -->
+    <script src="https://aframe.io"></script>
+    <script src="https://unpkg.com"></script>
+  </head>
+  <body>
+    <a-scene day-night-toggle>
+      <!-- Asset Management: Preloads your specific Gorilla Model -->
+      <a-assets>
+        <a-asset-item id="gorillaModel" src="https://githack.com"></a-asset-item>
+      </assets>
+
+      <!-- Spooky environment config (Default starts at Night mode) -->
+      
+      
+      <!-- Ambient Lighting System (Controlled by JavaScript Day/Night Cycle) -->
+      <a-light id="ambientLight" type="ambient" color="#110505"></a-light>
+      <a-light id="sunLight" type="directional" color="#ff0000" position="-1 2 1" intensity="0.2"></a-light>
+
+      <!-- CAVE MAZE WALLS -->
+      <!-- Starting Entrance Hallway -->
+      <a-box position="0 2 -3" width="3" height="4" depth="0.2" color="#3d2a1d" roughness="0.9"></a-box>
+      <a-box position="-1.5 2 -6" width="0.2" height="4" depth="6" color="#3d2a1d" roughness="0.9"></a-box>
+      <a-box position="1.5 2 -6" width="0.2" height="4" depth="6" color="#3d2a1d" roughness="0.9"></a-box>
+
+      <!-- First Turn Left Wall -->
+      <a-box position="-4 2 -9" width="5" height="4" depth="0.2" color="#3d2a1d" roughness="0.9"></a-box>
+      <!-- First Turn Right Wall -->
+      <a-box position="-1.5 2 -11" width="6" height="4" depth="0.2" color="#3d2a1d" roughness="0.9"></a-box>
+
+      <!-- Cave Roof to trap the flashlight beam and make it dark -->
+      <a-box position="0 4 -8" width="10" height="0.2" depth="12" color="#261b13" roughness="1"></a-box>
+
+      <!-- FIXED PLAYER RIG: Puts your camera, hands, and avatar model back together -->
+      
+        <!-- The VR Head Camera view layer -->
+        <a-camera id="camera" look-controls position="0 1.2 0"></a-camera>
+        
+        <!-- Attached Gorilla Avatar Model -->
+        
+
+        <!-- Left Hand Controller (Just Movement) -->
+        
+        
+        <!-- Right Hand Controller (Movement + Handheld Flashlight) -->
+        
+          <!-- The white spotlight beam tracking your controller wrist -->
+          <a-light id="flashlight" type="spot" color="#fff" intensity="2" angle="30" penumbra="0.3" distance="15" position="0 0 0" rotation="0 0 0"></a-light>
+          <!-- 3D Cylinder torch handle object -->
+          <a-cylinder radius="0.03" height="0.15" color="#333" rotation="90 0 0" position="0 0 0"></a-cylinder>
+        
+      
+    </a-scene>
+
+    <!-- 🔗 Links directly to your local JS logic file -->
+    <script src="script.js"></script>
+  </body>
+</html>

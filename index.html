@@ -3,7 +3,11 @@
 <head>
     <meta charset="utf-8">
     <title>Gorilla Escape: Cave Maze</title>
+    
+    <!-- Core stable VR engine load -->
     <script src="https://aframe.io"></script>
+
+    <!-- Custom game scripts running on top of A-Frame -->
     <script>
         // --- DAY/NIGHT TOGGLE SYSTEM ---
         AFRAME.registerComponent('day-night-toggle', {
@@ -93,6 +97,8 @@
             }
         });
     </script>
+
+    <!-- UI Overlay Styling -->
     <style>
         #ui-layer {
             position: absolute;
@@ -114,37 +120,53 @@
     </style>
 </head>
 <body>
+    <!-- 2D interface panel for desktop testing -->
     <div id="ui-layer">
         <button class="toggle-btn" onclick="window.toggleDayNight()">Toggle Day/Night</button>
     </div>
 
+    <!-- Active 3D Scene -->
     <a-scene day-night-toggle renderer="colorManagement: true">
+        
+        <!-- Asset Preloading: Registers your customized player model and materials -->
         <a-assets>
             <a-mixin id="wall" geometry="primitive: box; width: 4; height: 6; depth: 0.5" material="color: #332222; roughness: 0.9"></a-mixin>
+            <a-asset-item id="gorilla-avatar" src="https://githack.com"></a-asset-item>
         </a-assets>
 
+        <!-- Lighting Elements -->
         <a-light id="ambientLight" type="ambient" color="#110505"></a-light>
         <a-light id="sunLight" type="directional" intensity="0.2" color="#ff0000" position="-1 4 2"></a-light>
 
+        <!-- Player Rig (Physics, Tracking, Controllers, and Avatar Model) -->
         
             
+                
+                <!-- Gorilla Playermodel Attached directly to your camera viewport -->
+                
+
+                <!-- Flashlight Tracking Setup -->
                 
                     <a-light type="spot" color="#fff" intensity="1.5" angle="30" penumbra="0.5" distance="15" rotation="0 180 0"></a-light>
                 
             
             
+            <!-- Left and Right VR Controller setups with event listeners -->
             
             
         
 
+        <!-- Environment Floor -->
         <a-plane rotation="-90 0 0" width="50" height="50" color="#1a1111" roughness="1"></a-plane>
 
+        <!-- Basic Maze Layout Structure for player tracking validation -->
         
             
             
             
             
         
+
     </a-scene>
 </body>
 </html>

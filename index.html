@@ -1,66 +1,119 @@
-
 <!DOCTYPE html>
 <html>
-  <head>
+<head>
     <meta charset="utf-8">
     <title>Gorilla Escape: Cave Maze</title>
-    <!-- FIXED LINKS: Points directly to stable, complete library links -->
     <script src="https://aframe.io"></script>
-  </head>
-  <body>
-    <!-- The day-night-toggle component needs to be defined in your script.js -->
+    <script>
+        // --- DAY/NIGHT TOGGLE SYSTEM ---
+        AFRAME.registerComponent('day-night-toggle', {
+            init: function () {
+                this.isDay = false;
+                this.ambientLight = document.querySelector('#ambientLight');
+                this.sunLight = document.querySelector('#sunLight');
+                
+                window.toggleDayNight = () => {
+                    this.isDay = !this.isDay;
+                    if (this.isDay) {
+                        this.ambientLight.setAttribute('color', '#bbbbbb');
+                        this.sunLight.setAttribute('intensity', '0.8');
+                        this.sunLight.setAttribute('color', '#ffffff');
+                    } else {
+                        this.ambientLight.setAttribute('color', '#110505');
+                        this.sunLight.setAttribute('intensity', '0.2');
+                        this.sunLight.setAttribute('color', '#ff0000');
+                    }
+                };
+            }
+        });
+
+        // --- VR CONTROLLER TRIGGER WATCHER ---
+        AFRAME.registerComponent('vr-trigger-watch', {
+            init: function () {
+                this.el.addEventListener('triggerdown', function (evt) {
+                    if (window.toggleDayNight) window.toggleDayNight();
+                });
+            }
+        });
+
+        // --- FLASHLIGHT ORIENTATION TRACKING ---
+        AFRAME.registerComponent('flashlight-track', {
+            tick: function () {
+                var camera = document.querySelector('#camera');
+                if (camera) {
+                    this.el.object3D.rotation.copy(camera.object3D.rotation);
+                }
+            }
+        });
+
+        // --- GORILLA TAG STYLE PHYSICS LOCOMOTION ---
+        AFRAME.registerComponent('gtag-locomotion', {
+            init: function () {
+                this.velocity = new THREE.Vector3(0, 0, 0);
+                this.isGrounded = false;
+                this.gravity = -9.8;
+                this.friction = 0.96;
+
+                window.addEventListener('mousedown', () => {
+                    this.pushPlayer(new THREE.Vector3(0, 4, -5)); 
+                });
+            },
+            tick: function (time, timeDelta) {
+                if (!timeDelta) return;
+                let dt = timeDelta / 1000;
+                let pos = this.el.object3D.position;
+
+                if (!this.isGrounded) {
+                    this.velocity.y += this.gravity * dt;
+                }
+
+                this.velocity.x *= this.friction;
+                this.velocity.z *= this.friction;
+
+                pos.addScaledVector(this.velocity, dt);
+
+                if (pos.y <= 0) {
+                    pos.y = 0;
+                    this.velocity.y = 0;
+                    this.isGrounded = true;
+                }
+            },
+            pushPlayer: function(forceVector) {
+                var direction = new THREE.Vector3();
+                var camera = document.querySelector('#camera');
+                camera.object3D.getWorldDirection(direction);
+                
+                this.velocity.x = -direction.x * forceVector.z;
+                this.velocity.y = forceVector.y;
+                this.velocity.z = -direction.z * forceVector.z;
+                this.isGrounded = false;
+            }
+        });
+    </script>
+    <style>
+        #ui-layer {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 9999;
+        }
+        .toggle-btn {
+            padding: 12px 24px;
+            background: #222;
+            color: #fff;
+            border: 2px solid #fff;
+            font-family: sans-serif;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .toggle-btn:hover { background: #444; }
+    </style>
+</head>
+<body>
+    <div id="ui-layer">
+        <button class="toggle-btn" onclick="window.toggleDayNight()">Toggle Day/Night</button>
+    </div>
+
     <a-scene day-night-toggle>
-      
-      <!-- Asset Management: Preloads your specific Gorilla Model -->
-      <a-assets>
-        <!-- NOTE: Replace the src URL below with your actual, complete GitHub rawgit URL -->
-        <a-asset-item id="gorillaModel" src="https://githack.com"></a-asset-item>
-      </assets>
-
-      <!-- Ambient Lighting System (Controlled by JavaScript Day/Night Cycle) -->
-      <a-light id="ambientLight" type="ambient" color="#110505"></a-light>
-      <a-light id="sunLight" type="directional" color="#ff0000" position="-1 2 1" intensity="0.2"></a-light>
-
-      <!-- CAVE MAZE WALLS -->
-      <!-- Starting Entrance Hallway -->
-      <a-box position="0 2 -3" width="3" height="4" depth="0.2" color="#3d2a1d" roughness="0.9"></a-box>
-      <a-box position="-1.5 2 -6" width="0.2" height="4" depth="6" color="#3d2a1d" roughness="0.9"></a-box>
-      <a-box position="1.5 2 -6" width="0.2" height="4" depth="6" color="#3d2a1d" roughness="0.9"></a-box>
-
-      <!-- First Turn Left Wall -->
-      <a-box position="-4 2 -9" width="5" height="4" depth="0.2" color="#3d2a1d" roughness="0.9"></a-box>
-      <!-- First Turn Right Wall -->
-      <a-box position="-1.5 2 -11" width="6" height="4" depth="0.2" color="#3d2a1d" roughness="0.9"></a-box>
-
-      <!-- Cave Roof to trap the flashlight beam and make it dark -->
-      <a-box position="0 4 -8" width="10" height="0.2" depth="12" color="#261b13" roughness="1"></a-box>
-
-      <!-- FIXED PLAYER RIG: Wraps the camera, controllers, and avatar model together -->
-      
-        
-        <!-- The VR Head Camera view layer -->
-        <a-camera id="camera" look-controls position="0 1.2 0">
-          <!-- Attached Gorilla Avatar Model: Rendered slightly behind/below the head view so it doesn't block vision -->
-          <a-gltf-model src="#gorillaModel" position="0 -1.2 -0.2" scale="1 1 1"></a-gltf-model>
-        </a-camera>
-
-        <!-- Left Hand Controller (Just Movement/Tracking) -->
-        
-        
-        <!-- Right Hand Controller (Movement + Handheld Flashlight attachment) -->
-        
-          <!-- The white spotlight beam tracking your controller wrist -->
-          <a-light id="flashlight" type="spot" color="#fff" intensity="2" angle="30" penumbra="0.3" distance="15" position="0 0 0" rotation="0 0 0"></a-light>
-          <!-- 3D Cylinder torch handle object -->
-          <a-cylinder radius="0.03" height="0.15" color="#333" rotation="90 0 0" position="0 0 0"></a-cylinder>
-        
-
-      
-        
-    </a-scene>
-
-    <!-- 🔗 Links directly to your local JS logic file -->
-    <script src="script.js"></script>
-  </body>
-</html>
-
+ 

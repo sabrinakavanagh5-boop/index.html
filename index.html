@@ -2,46 +2,48 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>Gorilla Arena Escape: Full Playable VR Build</title>
+    <title>Gorilla Arena Escape: Complete Playable Build</title>
     
     <!-- Stable production loading for the A-Frame core framework -->
     <script src="https://aframe.io"></script>
 
-    <!-- Native Helper Components for VR Locomotion and Rig Tracking -->
+    <!-- --- JAVASCRIPT GAME ENGINE BLOCK --- -->
     <script>
-        // --- GORILLA TAG STYLE HAND-PUSH PHYSICS ---
+        window.isGameOver = false;
+
+        // --- GORILLA TAG LOCOMOTION & GRAVITY PHYSICS ---
         AFRAME.registerComponent('gtag-physics-locomotion', {
             init: function () {
                 this.velocity = new THREE.Vector3(0, 0, 0);
                 this.isGrounded = false;
                 this.gravity = -9.8;
-                this.friction = 0.96; // Air resistance/damping
+                this.friction = 0.96; // Air resistance to slow down drifts
                 this.camera = document.querySelector('#camera');
 
-                // Desktop Testing Fallback (Click to jump forward)
+                // Desktop / Mobile Fallback (Click mouse/tap screen to jump forward)
                 window.addEventListener('mousedown', () => {
-                    if (!this.el.sceneEl.is('vr-mode')) {
+                    if (!this.el.sceneEl.is('vr-mode') && !window.isGameOver) {
                         this.pushPlayer(new THREE.Vector3(0, 4.5, -5.5));
                     }
                 });
             },
             tick: function (time, timeDelta) {
-                if (!timeDelta) return;
+                if (window.isGameOver || !timeDelta) return;
                 let dt = timeDelta / 1000;
                 let pos = this.el.object3D.position;
 
-                // Apply constant gravity gravity
+                // Apply constant falling gravity
                 if (!this.isGrounded) {
                     this.velocity.y += this.gravity * dt;
                 }
 
-                // Smooth out sliding drift friction
+                // Apply surface friction
                 this.velocity.x *= this.friction;
                 this.velocity.z *= this.friction;
 
                 pos.addScaledVector(this.velocity, dt);
 
-                // Floor boundary collision limit
+                // Stop at the floor bounds (Y = 0)
                 if (pos.y <= 0) {
                     pos.y = 0;
                     this.velocity.y = 0;
@@ -49,12 +51,13 @@
                 }
             },
             pushPlayer: function(forceVector) {
+                if (window.isGameOver) return;
                 this.velocity.add(forceVector);
                 this.isGrounded = false;
             }
         });
 
-        // --- CONTROLLER VELOCITY TRACKER FOR VR MOVEMENT ---
+        // --- VR CONTROLLER VELOCITY & SURFACES PUSH TRIGGER ---
         AFRAME.registerComponent('vr-hand-push-trigger', {
             init: function () {
                 this.playerRig = document.querySelector('#player');
@@ -63,122 +66,143 @@
                 this.el.object3D.getWorldPosition(this.lastPosition);
             },
             tick: function (time, timeDelta) {
-                if (!timeDelta) return;
+                if (window.isGameOver || !timeDelta) return;
                 let dt = timeDelta / 1000;
 
                 let currentPosition = new THREE.Vector3();
                 this.el.object3D.getWorldPosition(currentPosition);
 
-                // Measure hand speed velocity vector this frame
+                // Math: Calculate frame-by-frame controller speed
                 this.currentVelocity.subVectors(currentPosition, this.lastPosition).divideScalar(dt);
                 this.lastPosition.copy(currentPosition);
 
                 let handWorldY = currentPosition.y;
 
-                // If hand slaps downward near the floor bounds plane, launch player
+                // If hand slaps downward rapidly near the floor, launch player upward and forward
                 if (handWorldY <= 0.4 && this.currentVelocity.y < -1.5) {
                     let locomotion = this.playerRig.components['gtag-physics-locomotion'];
                     if (locomotion) {
                         let pushForce = new THREE.Vector3(
-                            -this.currentVelocity.x * 0.4,
-                            Math.abs(this.currentVelocity.y) * 0.8, 
-                            -this.currentVelocity.z * 0.4
+                            -this.currentVelocity.x * 0.5,
+                            Math.abs(this.currentVelocity.y) * 0.9, 
+                            -this.currentVelocity.z * 0.5
                         );
                         
-                        // Prevent flying completely outside the arena layout grid bounds
-                        pushForce.x = Math.max(-8, Math.min(8, pushForce.x));
-                        pushForce.y = Math.max(2, Math.min(7, pushForce.y));
-                        pushForce.z = Math.max(-8, Math.min(8, pushForce.z));
+                        // Clamp forces so you stay inside the map geometry limits
+                        pushForce.x = Math.max(-10, Math.min(10, pushForce.x));
+                        pushForce.y = Math.max(3, Math.min(8, pushForce.y));
+                        pushForce.z = Math.max(-10, Math.min(10, pushForce.z));
 
                         locomotion.pushPlayer(pushForce);
                     }
                 }
             }
         });
+
+        // --- INTERACTIVE DOOR SWITCH TERMINAL ---
+        AFRAME.registerComponent('door-opener', {
+            init: function () {
+                this.door = document.querySelector('#hallwayDoor');
+                this.isOpened = false;
+                this.el.addEventListener('click', () => {
+                    if (this.isOpened) return;
+                    this.isOpened = true;
+                    // Slide the massive security wall straight into the roof
+                    this.door.setAttribute('animation', 'property: position; to: 0 11 12; dur: 1500; easing: easeOutQuad');
+                    this.el.setAttribute('color', '#00ff00'); // Turn green on success
+                });
+            }
+        });
+
+        // --- LIVE SPIKE TRAP COLLISION DETECTION ---
+        AFRAME.registerComponent('spiked-roof-trap', {
+            init: function () {
+                this.player = document.querySelector('#player');
+                this.trapLight = document.querySelector('#trapLight');
+            },
+            tick: function () {
+                if (window.isGameOver || !this.player) return;
+                
+                let trapPos = this.el.object3D.position;
+                let playerPos = this.player.object3D.position;
+
+                // Math: Calculate if player is under the 30-meter long hazard room shadow
+                let distanceX = Math.abs(trapPos.x - playerPos.x);
+                let distanceZ = Math.abs(trapPos.z - playerPos.z);
+                
+                // If you are inside the trap footprint, and it drops past head level (1.8m) -> Trigger Game Over!
+                if (distanceX < 6 && distanceZ < 15 && trapPos.y <= (playerPos.y + 1.8)) {
+                    window.triggerPlayerDeath("🦧 CRUSHED BY THE ARENA CEILING! 🚨");
+                }
+            }
+        });
+
+        // --- SYSTEM GAME OVER METHOD ---
+        window.triggerPlayerDeath = function(message) {
+            window.isGameOver = true;
+            document.querySelector('#death-message').innerText = message;
+            document.querySelector('#jumpscare-screen').style.display = 'flex';
+            
+            // Turn the whole VR environment red
+            let sceneEl = document.querySelector('a-scene');
+            let flash = document.createElement('a-sky');
+            flash.setAttribute('color', '#ff0000');
+            sceneEl.appendChild(flash);
+        };
     </script>
 </head>
 <body>
 
+    <!-- 1. JUMPSCARE GAME OVER UI OVERLAY -->
+    <div id="jumpscare-screen" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: black; color: red; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; font-family: sans-serif;">
+        <h1 id="death-message" style="font-size: 3rem; text-align: center; margin-bottom: 20px;">🚨 GAME OVER 🚨</h1>
+        <button onclick="window.location.reload()" style="padding: 15px 30px; font-size: 1.5rem; background-color: red; color: white; border: none; cursor: pointer; border-radius: 5px;">RESTART RUN</button>
+    </div>
+
+    <!-- 2. MAIN 3D ENGINE SCENE -->
     <a-scene>
         
-        <!-- GAME ASSETS PRELOADER -->
+        <!-- GLTF AVATAR PRELOADER -->
         <a-assets>
             <a-asset-item id="monke-avatar" src="https://githack.com"></a-asset-item>
         </a-assets>
 
-        <!-- ENVIRONMENT LIGHTING & SKY -->
+        <!-- ENVIRONMENT SETUP -->
         
         
         <a-sky id="skyBox" color="#1a1a24"></a-sky>
         <a-plane position="0 0 0" rotation="-90 0 0" width="200" height="200" color="#222" metalness="0.4"></a-plane>
 
-        <!-- AREA 1: THE EXTENDED SPAWN LOBBY -->
+
+        <!-- MAP LAYOUT AREA 1: THE EXTENDED SPAWN LOBBY -->
         <a-box position="-6 4 30" width="0.5" height="8" depth="36" color="#333" metalness="0.7"></a-box>
         <a-box position="6 4 30" width="0.5" height="8" depth="36" color="#333" metalness="0.7"></a-box>
         <a-box position="0 4 48" width="12" height="8" depth="0.5" color="#222" metalness="0.8"></a-box>
 
-        <!-- Door Open Switch Node -->
-        <a-box id="unlockButton" position="2 1.2 12.5" width="0.4" height="0.4" depth="0.2" color="#ff0000">
+        <!-- Access Button Switch Terminal -->
+        <a-box id="unlockButton" door-opener position="2 1.2 12.5" width="0.4" height="0.4" depth="0.2" color="#ff0000">
             <a-text value="SLAP TO ESCAPE" position="-0.7 0.4 0.1" scale="0.5 0.5 0.5" color="#fff"></a-text>
         </a-box>
 
-        <!-- Security Sliding Gate -->
-        <a-box id="hallwayDoor" position="0 4 12" width="12" height="8" depth="0.5" color="#444" metalness="0.9"
-               animation__open="property: position; to: 0 11 12; dur: 1800; easing: easeOutQuad; startEvents: click; eventTarget: #unlockButton">
-        </a-box>
+        <!-- The Security Sliding Door Wall -->
+        <a-box id="hallwayDoor" position="0 4 12" width="12" height="8" depth="0.5" color="#444" metalness="0.9"></a-box>
 
-        <!-- AREA 2: THE MONSTER OBSERVATION WINGS (CROSS SECTIONS) -->
+
+        <!-- MAP LAYOUT AREA 2: THE MONSTER OBSERVATION CROSS-WINGS -->
+        <!-- Left Wing -->
         <a-box position="-20 4 -6" width="16" height="8" depth="0.5" color="#2b2b2b"></a-box>
         <a-box position="-20 4 6" width="16" height="8" depth="0.5" color="#2b2b2b"></a-box>
         <a-box position="-28 4 0" width="0.5" height="8" depth="12" color="#111"></a-box>
 
+        <!-- Right Wing -->
         <a-box position="20 4 -6" width="16" height="8" depth="0.5" color="#2b2b2b"></a-box>
         <a-box position="20 4 6" width="16" height="8" depth="0.5" color="#2b2b2b"></a-box>
         <a-box position="28 4 0" width="0.5" height="8" depth="12" color="#111"></a-box>
 
-        <!-- AREA 3: THE SPIKE TRAP RUNWAY -->
+
+        <!-- MAP LAYOUT AREA 3: THE SPIKE TRAP RUNWAY -->
         <a-box position="-6 4 -21" width="0.5" height="8" depth="30" color="#2b2b2b"></a-box>
         <a-box position="6 4 -21" width="0.5" height="8" depth="30" color="#2b2b2b"></a-box>
         <a-box position="0 4 -36" width="12" height="8" depth="0.5" color="#222"></a-box> 
 
-        
-
-        <!-- Automated Looping Ceiling Trap -->
-        <a-box id="spikedCeiling" position="0 9.0 -21" width="11.5" height="1" depth="30" color="#555" metalness="0.8"
-               animation__drop="property: position; from: 0 9.0 -21; to: 0 1.2 -21; dur: 2500; dir: alternate; loop: true; easing: easeInQuad">
-            <a-cone position="-3 -1 -10" radius-bottom="0.4" height="1.5" rotation="180 0 0" color="#aaa"></a-cone>
-            <a-cone position="3 -1 -10" radius-bottom="0.4" height="1.5" rotation="180 0 0" color="#aaa"></a-cone>
-            <a-cone position="-3 -1 0" radius-bottom="0.4" height="1.5" rotation="180 0 0" color="#aaa"></a-cone>
-            <a-cone position="0 -1 0" radius-bottom="0.4" height="1.5" rotation="180 0 0" color="#ff0022"></a-cone>
-            <a-cone position="3 -1 0" radius-bottom="0.4" height="1.5" rotation="180 0 0" color="#aaa"></a-cone>
-            <a-cone position="-3 -1 10" radius-bottom="0.4" height="1.5" rotation="180 0 0" color="#aaa"></a-cone>
-            <a-cone position="3 -1 10" radius-bottom="0.4" height="1.5" rotation="180 0 0" color="#aaa"></a-cone>
-        </a-box>
-
-        <!-- 7. PLAYABLE GTAG VR CHARACTER PLAYER RIG -->
-         
-            
-            <!-- Central Eye Camera Stance -->
-            <a-camera id="camera" look-controls>
-                <a-cursor raycaster="objects: #unlockButton" color="yellow" scale="0.5 0.5 0.5"></a-cursor>
-                
-                
-                <!-- Attaches your model to your headset camera view so your body mesh spawns with you -->
-                <a-gltf-model src="#monke-avatar" position="0 -1.6 -0.2" rotation="0 180 0" scale="1 1 1"></a-gltf-model>
-            </a-camera>
-
-            <!-- Left VR Controller mapping your custom .glb arm mesh bone elements -->
-            
-                <a-gltf-model src="#monke-avatar" position="0 0 0" rotation="0 180 0" scale="0.5 0.5 0.5"></a-gltf-model>
-            
-            
-            <!-- Right VR Controller mapping your custom .glb arm mesh bone elements -->
-            
-                <a-gltf-model src="#monke-avatar" position="0 0 0" rotation="0 180 0" scale="0.5 0.5 0.5"></a-gltf-model>
-            
-
-        
-
-    </a-scene>
-</body>
-</html>
+        <!-- Hazard Alert Light -->

@@ -1,20 +1,22 @@
+
 <!DOCTYPE html>
 <html>
   <head>
-    <!-- FIXED LINKS: Points directly to the stable game engine files -->
+    <meta charset="utf-8">
+    <title>Gorilla Escape: Cave Maze</title>
+    <!-- FIXED LINKS: Points directly to stable, complete library links -->
     <script src="https://aframe.io"></script>
-    <script src="https://unpkg.com"></script>
   </head>
   <body>
+    <!-- The day-night-toggle component needs to be defined in your script.js -->
     <a-scene day-night-toggle>
+      
       <!-- Asset Management: Preloads your specific Gorilla Model -->
       <a-assets>
+        <!-- NOTE: Replace the src URL below with your actual, complete GitHub rawgit URL -->
         <a-asset-item id="gorillaModel" src="https://githack.com"></a-asset-item>
       </assets>
 
-      <!-- Spooky environment config (Default starts at Night mode) -->
-      
-      
       <!-- Ambient Lighting System (Controlled by JavaScript Day/Night Cycle) -->
       <a-light id="ambientLight" type="ambient" color="#110505"></a-light>
       <a-light id="sunLight" type="directional" color="#ff0000" position="-1 2 1" intensity="0.2"></a-light>
@@ -33,28 +35,32 @@
       <!-- Cave Roof to trap the flashlight beam and make it dark -->
       <a-box position="0 4 -8" width="10" height="0.2" depth="12" color="#261b13" roughness="1"></a-box>
 
-      <!-- FIXED PLAYER RIG: Puts your camera, hands, and avatar model back together -->
+      <!-- FIXED PLAYER RIG: Wraps the camera, controllers, and avatar model together -->
       
+        
         <!-- The VR Head Camera view layer -->
-        <a-camera id="camera" look-controls position="0 1.2 0"></a-camera>
-        
-        <!-- Attached Gorilla Avatar Model -->
-        
+        <a-camera id="camera" look-controls position="0 1.2 0">
+          <!-- Attached Gorilla Avatar Model: Rendered slightly behind/below the head view so it doesn't block vision -->
+          <a-gltf-model src="#gorillaModel" position="0 -1.2 -0.2" scale="1 1 1"></a-gltf-model>
+        </a-camera>
 
-        <!-- Left Hand Controller (Just Movement) -->
+        <!-- Left Hand Controller (Just Movement/Tracking) -->
         
         
-        <!-- Right Hand Controller (Movement + Handheld Flashlight) -->
+        <!-- Right Hand Controller (Movement + Handheld Flashlight attachment) -->
         
           <!-- The white spotlight beam tracking your controller wrist -->
           <a-light id="flashlight" type="spot" color="#fff" intensity="2" angle="30" penumbra="0.3" distance="15" position="0 0 0" rotation="0 0 0"></a-light>
           <!-- 3D Cylinder torch handle object -->
           <a-cylinder radius="0.03" height="0.15" color="#333" rotation="90 0 0" position="0 0 0"></a-cylinder>
         
+
       
+        
     </a-scene>
 
     <!-- 🔗 Links directly to your local JS logic file -->
     <script src="script.js"></script>
   </body>
 </html>
+

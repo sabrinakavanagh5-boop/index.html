@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>Gorilla Arena Escape: Lobby & Hallway</title>
+    <title>Gorilla Arena Escape: True Layout Build</title>
     
     <!-- Stable production loading for the A-Frame core framework -->
     <script src="https://aframe.io"></script>
@@ -69,7 +69,9 @@
                 this.camera = document.querySelector('#camera');
 
                 window.addEventListener('mousedown', () => {
-                    this.pushPlayer(new THREE.Vector3(0, 4.5, -5.5));
+                    if (!this.el.sceneEl.is('vr-mode')) {
+                        this.pushPlayer(new THREE.Vector3(0, 4.5, -5.5));
+                    }
                 });
             },
             tick: function (time, timeDelta) {
@@ -105,6 +107,45 @@
             }
         });
 
+        // --- VR HAND PUSH MECHANIC ---
+        AFRAME.registerComponent('vr-gtag-hand-push', {
+            init: function () {
+                this.playerRig = document.querySelector('#player');
+                this.lastPosition = new THREE.Vector3();
+                this.currentVelocity = new THREE.Vector3();
+                this.el.object3D.getWorldPosition(this.lastPosition);
+            },
+            tick: function (time, timeDelta) {
+                if (window.isGameOver || !timeDelta) return;
+                let dt = timeDelta / 1000;
+
+                let currentPosition = new THREE.Vector3();
+                this.el.object3D.getWorldPosition(currentPosition);
+
+                this.currentVelocity.subVectors(currentPosition, this.lastPosition).divideScalar(dt);
+                this.lastPosition.copy(currentPosition);
+
+                let handWorldY = currentPosition.y;
+
+                if (handWorldY <= 0.4 && this.currentVelocity.y < -1.5) {
+                    let locomotion = this.playerRig.components['gtag-locomotion'];
+                    if (locomotion) {
+                        let pushForce = new THREE.Vector3(
+                            -this.currentVelocity.x * 0.4,
+                            Math.abs(this.currentVelocity.y) * 0.8, 
+                            -this.currentVelocity.z * 0.4
+                        );
+                        
+                        pushForce.x = Math.max(-8, Math.min(8, pushForce.x));
+                        pushForce.y = Math.max(2, Math.min(7, pushForce.y));
+                        pushForce.z = Math.max(-8, Math.min(8, pushForce.z));
+
+                        locomotion.pushPlayer(pushForce);
+                    }
+                }
+            }
+        });
+
         // --- DOOR OPENER SYSTEM ---
         AFRAME.registerComponent('door-opener', {
             init: function () {
@@ -113,9 +154,8 @@
                 this.el.addEventListener('click', () => {
                     if (this.isOpened) return;
                     this.isOpened = true;
-                    // Animate the door moving up into the roof structure
-                    this.door.setAttribute('animation', 'property: position; to: 0 6.5 -24.8; dur: 1500; easing: easeOutQuad');
-                    // Change the button color to indicate unlock success
+                    // Animates the security door upward out of the way
+                    this.door.setAttribute('animation', 'property: position; to: 0 6.5 -20; dur: 1500; easing: easeOutQuad');
                     this.el.setAttribute('color', '#00ff00'); 
                 });
             }
@@ -133,13 +173,13 @@
             sceneEl.appendChild(flash);
         };
 
-        // --- FALLING SPIKE ROOF SYSTEM ---
+        // --- FALLING SPIKE ROOF SYSTEM (UPDATED ACCORDING TO YOUR ORIGINAL CODE) ---
         AFRAME.registerComponent('spiked-roof-trap', {
             init: function () {
                 this.player = document.querySelector('#player');
                 this.trapState = 'IDLE'; 
                 this.timer = 0;
-                this.trapInterval = 30; // Triggers every 30 seconds
+                this.trapInterval = 30; // Triggers every 30 seconds straight out of your original code
                 this.warningDuration = 3.0; 
                 this.dropSpeed = 15.0; 
                 this.retractSpeed = 1.5; 
@@ -196,37 +236,3 @@
                     this.trapLight.setAttribute('light', 'intensity', flash ? 2 : 0);
                 }
             },
-            checkCrushCollision: function() {
-                if (!this.player) return;
-                let playerY = this.player.object3D.position.y + 1.6; 
-                let roofY = this.el.object3D.position.y - 0.5; 
-                let playerZ = this.player.object3D.position.z;
-                let playerX = this.player.object3D.position.x;
-
-                // Check collision inside hallway tracking space boundaries
-                if (roofY <= playerY && playerZ < -25 && playerZ > -75 && Math.abs(playerX) < 4) {
-                    window.triggerPlayerDeath("CRUSHED BY SPIKE TRAP!");
-                }
-            }
-        });
-
-        window.restartGame = () => {
-            window.isGameOver = false;
-            document.querySelector('#jumpscare-screen').style.display = 'none';
-            
-            // Reset player to the center spawning coordinates of the new lobby
-            document.querySelector('#player').setAttribute('position', '0 0 0'); 
-            document.querySelector('#player').components['gtag-locomotion'].velocity.set(0,0,0);
-            
-            // Reset door and buttons
-            let opener = document.querySelector('#doorBtn');
-            if (opener) {
-                opener.components['door-opener'].isOpened = false;
-                opener.setAttribute('color', '#ff0000');
-            }
-            document.querySelector('#hallwayDoor').setAttribute('position', '0 3 -24.8');
-            
-            // Reset hallway trap coordinates
-            document.querySelector('#movingRoof').setAttribute('position', '0 9 -50');
-            document.querySelector('#movingRoof').components['spiked-roof-trap'].trapState = 'IDLE';
-            document.querySelector('#movingRoof').components['spiked-roof-trap'].timer = 0;

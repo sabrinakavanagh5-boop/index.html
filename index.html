@@ -174,6 +174,15 @@ AFRAME.registerComponent('proc-tex', {
   }
 });
 
+/* ---------- Hide the white controller-hand model (hand tracking still works) ---------- */
+AFRAME.registerComponent('no-hand-model', {
+  init: function () {
+    const hide = () => { const m = this.el.getObject3D('mesh'); if (m) m.visible = false; };
+    this.el.addEventListener('model-loaded', hide);
+    this.el.addEventListener('object3dset', hide);
+  }
+});
+
 /* ---------- Player model that follows your head ---------- */
 AFRAME.registerComponent('gtag-avatar', {
   schema: {height: {default: 0.7}, yawOffset: {default: 0}, drop: {default: 0.5}},
@@ -185,6 +194,12 @@ AFRAME.registerComponent('gtag-avatar', {
       m.scale.multiplyScalar(this.data.height / size.y);             // normalise size
       box.setFromObject(m);
       m.position.sub(box.getCenter(new THREE.Vector3()));            // centre on entity origin
+      m.traverse(o => {                                              // fur = Material.003 (body + arms); face and eyes keep their colors
+        if (!o.isMesh || !o.material || !/003/.test(o.material.name)) return;
+        o.material = o.material.clone(); o.material.map = null;
+        o.material.color.set('#2a62ff'); o.material.emissive && o.material.emissive.set('#0a1f66');
+        o.material.needsUpdate = true;
+      });
     });
   },
   tick: function () {
@@ -310,10 +325,10 @@ window.triggerPlayerDeath = function (message) {
     <a-camera id="camera" look-controls wasd-controls="enabled: false" position="0 1.6 0"></a-camera>
     <a-entity gtag-avatar gltf-model="#monke"></a-entity>
 
-    <a-entity id="left-hand" hand-controls="hand: left">
+    <a-entity id="left-hand" hand-controls="hand: left" no-hand-model>
       <a-sphere radius="0.02" color="#ffb347"></a-sphere>
     </a-entity>
-    <a-entity id="right-hand" hand-controls="hand: right">
+    <a-entity id="right-hand" hand-controls="hand: right" no-hand-model>
       <a-sphere radius="0.02" color="#ffb347"></a-sphere>
     </a-entity>
   </a-entity>
